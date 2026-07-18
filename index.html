@@ -1,453 +1,501 @@
 <!DOCTYPE html>
-
-<html lang="en">
-
+<html lang="vi">
 <head>
-
+  <base target="_top">
   <meta charset="UTF-8">
-
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <title>SƠN PREMIUM ORDER</title>
+  <title>SƠN PREMIUM ORDER - HOÀN TIỀN</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <style>
+    :root {
+      --shopee-orange: #ff4d24;
+      --shopee-orange-hover: #f03e15;
+      --shopee-light-orange: #fff5f2;
+      --shopee-text: #222222;
+      --shopee-gray: #757575;
+      --shopee-border: #ebdcd8;
+      --bg-input: #f5f5f5;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-
-      font-family: Arial, sans-serif;
-
-      max-width: 600px;
-
-      margin: 0 auto;
-
-      padding: 30px 20px;
-
-      background-color: #f9f9f9;
-
+      font-family: 'Be Vietnam Pro', sans-serif;
+      background: linear-gradient(180deg, #ffeae5 0%, #f6f6f6 50%, #f0f0f0 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
     }
 
-    h2{
-
-    text-align:center;
-
-    color:#111;
-
-    margin-bottom:30px;
-
-    font-size:28px;
-
-    font-weight:700;
-
-}
-
-    .input-field {
-
-      margin-bottom: 15px;
-
-    }
-
-    label {
-
-      display: block;
-
-      margin-bottom: 5px;
-
-      font-weight: bold;
-
-    }
-
-    input {
-
+    /* CARD CONTAINER CHÍNH CHUẨN MẪU */
+    .shopee-card {
+      background: #ffffff;
       width: 100%;
-
-      padding: 10px;
-
-      font-size: 16px;
-
-      border: 1px solid #ddd;
-
-      border-radius: 5px;
-
-      box-sizing: border-box;
-
+      max-width: 500px;
+      border-radius: 24px;
+      padding: 30px 24px;
+      box-shadow: 0 10px 30px rgba(255, 77, 36, 0.05), 0 1px 3px rgba(0,0,0,0.02);
     }
 
-    button.generate{
-
-
-
-    width:100%;
-
-
-
-    padding:15px;
-
-
-
-    border:none;
-
-
-
-    border-radius:12px;
-
-
-
-    background:#111;
-
-
-
-    color:white;
-
-
-
-    font-size:17px;
-
-
-
-    font-weight:bold;
-
-
-
-    cursor:pointer;
-
-
-
-    transition:.3s;
-
-}
-
-    button.generate:hover{
-
-
-
-    background:#e53935;
-
-
-
-    transform:translateY(-2px);
-
-}
-
-    button.generate:disabled {
-
-      background-color: #f8aa9a;
-
-      cursor: not-allowed;
-
+    /* TIÊU ĐỀ SỰ KIỆN */
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
     }
 
-    .result {
-
-      margin-top: 25px;
-
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--shopee-text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    .result-label {
-
-      font-weight: bold;
-
-      margin-bottom: 5px;
-
-    }
-
-    textarea {
-
-      width: 100%;
-
-      height: 80px;
-
-      padding: 10px;
-
-      border: 1px solid #ddd;
-
-      border-radius: 5px;
-
-      font-size: 14px;
-
-      resize: none;
-
-    }
-
-    button.copy{
-
-
-
-    width:100%;
-
-
-
-    padding:14px;
-
-
-
-    border:none;
-
-
-
-    border-radius:12px;
-
-
-
-    background:#444;
-
-
-
-    color:white;
-
-
-
-    font-weight:bold;
-
-
-
-    cursor:pointer;
-
-
-
-    transition:.3s;
-
-}
-
-
-
-button.copy:hover{
-
-
-
-    background:#111;
-
-}
-
-    .small {
-
-      font-size: 14px;
-
-      color: #666;
-
-      margin-top: 10px;
-
-      text-align: center;
-
-    }
-
-    .note {
-
-      background-color: #fff3cd;
-
-      color: #856404;
-
-      padding: 10px;
-
-      border-radius: 5px;
-
-      margin-bottom: 20px;
-
-      font-size: 14px;
-
-    }
-
-    .loader {
-
+    .card-title::before {
+      content: '';
       display: inline-block;
-
-      width: 20px;
-
-      height: 20px;
-
-      margin-right: 8px;
-
-      border: 3px solid rgba(255,255,255,.3);
-
+      width: 7px;
+      height: 7px;
+      background-color: var(--shopee-orange);
       border-radius: 50%;
+    }
 
+    .header-link {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--shopee-orange);
+      text-decoration: none;
+    }
+
+    /* BANNER THÔNG BÁO CHẠY SALE */
+    .sale-banner {
+      background-color: var(--shopee-light-orange);
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      color: #ee4d2d;
+      font-weight: 500;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* KHUNG NHẬP LIỆU */
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    .input-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--shopee-text);
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .input-box-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-box-wrapper i {
+      position: absolute;
+      left: 14px;
+      color: #a0a0a0;
+      font-size: 0.95rem;
+    }
+
+    .input-control {
+      width: 100%;
+      padding: 13px 14px 13px 40px;
+      font-size: 0.9rem;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      background-color: #fafafa;
+      font-family: inherit;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .input-control:focus {
+      border-color: var(--shopee-orange);
+      background-color: #fff;
+      box-shadow: 0 0 0 3px rgba(255, 77, 36, 0.08);
+    }
+
+    /* NÚT BẤM CHUYỂN ĐỔI CHUẨN MẪU ẢNH */
+    .btn-convert {
+      width: 100%;
+      padding: 14px;
+      background-color: #ffc4b6; /* Màu nhạt mặc định khi chưa điền */
+      color: white;
+      border: none;
+      border-radius: 16px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      margin-top: 20px;
+    }
+
+    /* Kích hoạt màu đậm khi các trường đã nhập */
+    .btn-convert.ready {
+      background-color: var(--shopee-orange);
+    }
+    .btn-convert.ready:hover {
+      background-color: var(--shopee-orange-hover);
+    }
+
+    /* PHẦN HIỂN THỊ KẾT QUẢ MỚI (CHỨA THÔNG TIN SẢN PHẨM) */
+    .result-section {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px dashed #e8e8e8;
+      display: none; /* Chỉ hiện sau khi bấm đổi link thành công */
+    }
+
+    .product-box {
+      display: flex;
+      gap: 12px;
+      border: 1px solid #f2f2f2;
+      border-radius: 16px;
+      padding: 12px;
+      margin-bottom: 16px;
+      background: #ffffff;
+    }
+
+    .product-img {
+      width: 85px;
+      height: 85px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid #f5f5f5;
+    }
+
+    .product-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex: 1;
+    }
+
+    .product-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--shopee-text);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .product-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+      flex-wrap: wrap;
+    }
+
+    .product-price {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--shopee-orange);
+    }
+
+    .product-commission {
+      background-color: #e6fffb;
+      border: 1px solid #b5f5ec;
+      color: #08979c;
+      font-size: 0.75rem;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* BỘ NÚT CHỨC NĂNG DƯỚI SẢN PHẨM */
+    .action-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn-buy {
+      width: 100%;
+      padding: 13px;
+      background-color: var(--shopee-orange);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .btn-buy:hover { background-color: var(--shopee-orange-hover); }
+
+    .btn-copy {
+      width: 100%;
+      padding: 13px;
+      background-color: #ffffff;
+      color: #222;
+      border: 1px solid #d9d9d9;
+      border-radius: 14px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-copy:hover { background-color: #f5f5f5; }
+
+    /* FOOTER PHỤ DƯỚI CARD */
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      font-size: 0.75rem;
+      color: var(--shopee-gray);
+    }
+
+    .footer-secure {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .footer-help {
+      color: var(--shopee-orange);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    /* Hiệu ứng xoay loading */
+    .loader {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-radius: 50%;
       border-top-color: white;
-
-      animation: spin 1s ease-in-out infinite;
-
-      vertical-align: middle;
-
+      animation: spin 0.8s linear infinite;
     }
-
-    @keyframes spin {
-
-      to { transform: rotate(360deg); }
-
-    }
-
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
-
 </head>
-
 <body>
 
-  <h2>HOÀN TIỀN MUA SẮM SPO</h2>
+  <div class="shopee-card">
+    <div class="card-header">
+      <div class="card-title">Sắp tới: Siêu Sale SPO</div>
+      <a href="https://zalo.me/0859247406" target="_blank" class="header-link">Hỗ trợ <i class="fa-solid fa-chevron-right" style="font-size: 10px;"></i></a>
+    </div>
 
-  <div class="note" id="note">
+    <div class="sale-banner">
+      <i class="fa-solid fa-fire"></i>
+      <span>Đang có <b style="font-weight: 700;">24</b> người đang mua sắm hoàn tiền — Đừng bỏ lỡ!</span>
+    </div>
 
-    <strong>Note:</strong> Dán link Shopee đã sao chép (e.g., <code>s.shopee.sg/xyz</code>) below.
+    <input type="hidden" id="affiliateIdNumber" value="17340760181">
 
-  </div>
+    <div class="input-group">
+      <label class="input-label" for="username">Tên đăng nhập hệ thống</label>
+      <div class="input-box-wrapper">
+        <i class="fa-regular fa-user"></i>
+        <input type="text" id="username" class="input-control" placeholder="Nhập ID / Tên tài khoản của bạn" oninput="checkInputs()">
+      </div>
+    </div>
 
-  
+    <div class="input-group">
+      <label class="input-label" for="inputLink">Liên kết Shopee</label>
+      <div class="input-box-wrapper">
+        <i class="fa-solid fa-link"></i>
+        <input type="text" id="inputLink" class="input-control" placeholder="Dán link Shopee, Shopee Food..." oninput="checkInputs()">
+      </div>
+    </div>
 
-  <!-- ID ẩn, không hiển thị nhưng vẫn dùng được -->
+    <button class="btn-convert" id="generateButton" onclick="generateLink()">
+      <i class="fa-solid fa-arrows-rotate"></i> CHUYỂN ĐỔI LINK <i class="fa-solid fa-arrow-right" style="font-size: 11px;"></i>
+    </button> 
 
-<input type="hidden" id="affiliateIdNumber" value="17340760181">
+    <div class="result-section" id="resultArea">
+      <div style="font-size: 0.85rem; color: #52c41a; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+        <i class="fa-regular fa-circle-check"></i> Link đã được gắn mã giảm giá
+      </div>
 
+      <div class="product-box">
+        <img id="pImg" src="https://placehold.co/100x100?text=Shopee" alt="Sản phẩm" class="product-img">
+        <div class="product-info">
+          <div id="pTitle" class="product-title">Đang tải tên sản phẩm...</div>
+          <div class="product-meta">
+            <span id="pPrice" class="product-price">0đ</span>
+            <span id="pComm" class="product-commission">
+              <i class="fa-solid fa-gift"></i> Hoa hồng: 0đ
+            </span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="action-group">
+        <button class="btn-buy" onclick="buyNow()">
+          <i class="fa-solid fa-bag-shopping"></i> Mua Ngay
+        </button>
+        <button class="btn-copy" onclick="copyLink()">
+          <i class="fa-regular fa-copy"></i> Sao chép
+        </button>
+      </div>
+    </div>
 
-
-<div class="input-field">
-
-  <label for="username">Tên đăng nhập:</label>
-
-  <input type="text" id="username" placeholder="Nhập tên đăng nhập">
-
-</div>
-
-
-
-  <div class="input-field">
-
-    <label for="inputLink">Shopee Link:</label>
-
-    <input type="text" id="inputLink" placeholder="Paste Shopee product link here">
-
-  </div>
-
-  <button class="generate" id="generateButton" onclick="generateLink()">Chuyển Đổi</button> 
-
-  <div class="result">
-
-    <div class="result-label">Link:</div>
-
-    <textarea id="resultLink" readonly></textarea>
-
-    <button class="copy" onclick="buyNow()">🛒 MUA NGAY</button>
-
-    <p class="small" id="copyStatus"></p>
-
+    <div class="card-footer">
+      <div class="footer-secure">
+        <i class="fa-regular fa-circle-check" style="color: #52c41a;"></i> An toàn — Nhanh chóng — Chính xác
+      </div>
+      <a href="#" class="footer-help">Hướng dẫn</a>
+    </div>
   </div>
 
   <script>
-let realAffiliateLink = "";
-    async function expandLink(url) {
+    let realAffiliateLink = "";
 
-      const response = await fetch(`/api/expand?url=${encodeURIComponent(url)}`);
-
-      const data = await response.json();
-
-      if (data.expandedUrl) return data.expandedUrl;
-
-      throw new Error(data.error || 'Failed to expand link.');
-
-    }
-
-    function generateSubId() {
-
-      return 'vercel-user-click';
-
-    }
-
-    function encodeURL(url) {
-
-      return encodeURIComponent(url);
-
-    }
-
-    function getCleanBaseURL(url) {
-
-      return url.split('?')[0];
-
-    }
-
-    async function generateLink() {
-
-      const input = document.getElementById('inputLink').value.trim();
-
-      const affiliateId = document.getElementById('affiliateIdNumber').value.trim();
-
+    function checkInputs() {
       const username = document.getElementById('username').value.trim();
-
-      const resultArea = document.getElementById('resultLink');
-
-      const copyStatus = document.getElementById('copyStatus');
-
-      const generateButton = document.getElementById('generateButton');
-
-      if (!input || !affiliateId || !username) {
-
-        alert('Please fill in all fields.');
-
-        return;
-
+      const inputLink = document.getElementById('inputLink').value.trim();
+      const btn = document.getElementById('generateButton');
+      if (username && inputLink) {
+        btn.classList.add('ready');
+      } else {
+        btn.classList.remove('ready');
       }
-
-      // Show loading indicator
-
-      generateButton.disabled = true;
-
-      const originalButtonText = generateButton.innerHTML;
-
-      generateButton.innerHTML = '<span class="loader"></span> Processing...';
-
-      try {
-
-        let finalUrl = input;
-
-        if (input.includes('s.shopee.')) {
-
-          finalUrl = await expandLink(input);
-
-        }
-
-        // Get clean base URL without any parameters
-
-        finalUrl = getCleanBaseURL(finalUrl);
-
-        const encoded = encodeURL(finalUrl);
-
-        const finalLink =
-`https://s.shopee.sg/an_redir?origin_link=${encoded}&affiliate_id=${affiliateId}&sub_id=${encodeURIComponent(username)}`;
-
-// Lưu link thật
-realAffiliateLink = finalLink;
-
-// Chỉ hiển thị link đã che
-resultArea.value = "https://s.shopee.sg/*******";
-
-copyStatus.textContent = "";
-
-      } catch (err) {
-
-        console.error(err);
-
-        alert('Error generating link: ' + err.message);
-
-      } finally {
-
-        // Restore button state
-
-        generateButton.innerHTML = originalButtonText;
-
-        generateButton.disabled = false;
-
-      }
-
     }
 
-  function buyNow() {
+    function generateLink() {
+      const input = document.getElementById('inputLink').value.trim();
+      const username = document.getElementById('username').value.trim();
+      const btn = document.getElementById('generateButton');
+      const resultArea = document.getElementById('resultArea');
 
-    if (!realAffiliateLink) {
-        alert("Vui lòng chuyển đổi link trước.");
+      if (!input || !username) {
+        alert('Vui lòng điền tên đăng nhập và dán Link Shopee trước!');
         return;
+      }
+
+      btn.disabled = true;
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '<span class="loader"></span> ĐANG XỬ LÝ...';
+
+      // Gọi hàm qua backend Google Apps Script (Mã.gs)
+      if (typeof google !== 'undefined' && google.script) {
+        google.script.run.withSuccessHandler((response) => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          
+          if(response.startsWith("❌") || response.startsWith("⚠️")) {
+            alert(response);
+          } else {
+            try {
+              // Phân tích cục JSON từ Vercel trả về thông qua Mã.gs
+              const data = JSON.parse(response); 
+              if (data && data.success) {
+                realAffiliateLink = data.result; 
+                
+                // Cập nhật dữ liệu động lên giao diện
+                document.getElementById('pImg').src = data.image || "https://placehold.co/100x100?text=Shopee"; 
+                document.getElementById('pTitle').innerText = data.title || "Sản phẩm liên kết Shopee";
+                document.getElementById('pPrice').innerText = data.price || "Đang cập nhật";
+                
+                if(data.commission) {
+                  document.getElementById('pComm').innerHTML = '<i class="fa-solid fa-gift"></i> Hoa hồng: ' + data.commission;
+                  document.getElementById('pComm').style.display = "inline-flex";
+                } else {
+                  document.getElementById('pComm').style.display = "none";
+                }
+                
+                resultArea.style.display = 'block'; 
+              } else {
+                alert("❌ Lỗi: " + (data.error || "Không thể chuyển đổi"));
+              }
+            } catch(e) {
+              // Trường hợp API cũ hoặc lỗi JSON, fallback an toàn để không sập giao diện
+              realAffiliateLink = response;
+              document.getElementById('pImg').src = "https://placehold.co/100x100?text=SPO"; 
+              document.getElementById('pTitle').innerText = "Sản phẩm liên kết Shopee Affiliate (Hệ thống SPO)";
+              document.getElementById('pPrice').innerText = "Đã mã hóa an toàn";
+              document.getElementById('pComm').style.display = "none";
+              resultArea.style.display = 'block';
+            }
+          }
+        }).withFailureHandler(() => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          alert("Lỗi kết nối hệ thống máy chủ Apps Script.");
+        }).SHOPEE(username, input);
+      } else {
+        // Môi trường test local trình duyệt
+        setTimeout(() => {
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          realAffiliateLink = "https://shopee.vn/80BAQbq71x";
+          
+          document.getElementById('pImg').src = "https://cf.shopee.vn/file/vn-11134207-7ras8-m26zkp7h18u31c"; 
+          document.getElementById('pTitle').innerText = "Sữa tắm trắng da hương nước hoa Pháp Enchanteur White 650g Hỗ trợ mờ thâm với Kem sữa tươi+...";
+          document.getElementById('pPrice').innerText = "₫208.000";
+          document.getElementById('pComm').innerHTML = '<i class="fa-solid fa-gift"></i> Hoa hồng: ₫37.440 (18%)';
+          document.getElementById('pComm').style.display = "inline-flex";
+          
+          resultArea.style.display = 'block';
+        }, 1000);
+      }
     }
 
-    window.open(realAffiliateLink, "_blank");
+    function buyNow() {
+      if (!realAffiliateLink) {
+        alert("Vui lòng thực hiện chuyển đổi link trước.");
+        return;
+      }
+      window.open(realAffiliateLink, "_blank");
+    }
 
-}
-
+    function copyLink() {
+      if (!realAffiliateLink) {
+        alert("Không tìm thấy link cần sao chép!");
+        return;
+      }
+      // Sao chép link đã che cho thẩm mỹ (hoặc đổi thành realAffiliateLink nếu muốn copy link thật)
+      const maskedLink = "https://s.shopee.sg/*******";
+      navigator.clipboard.writeText(realAffiliateLink).then(() => {
+        alert("📋 Đã sao chép liên kết thành công!");
+      }).catch(() => {
+        alert("Lỗi! Không thể sao chép tự động.");
+      });
+    }
   </script>
-
 </body>
-
 </html>
