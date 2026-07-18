@@ -20,18 +20,18 @@ export default async function handler(req, res) {
 
     let finalUrl = url;
 
-    // Nếu là link rút gọn Shopee thì mở rộng
-    if (url.includes("s.shopee.")) {
+// Nếu là link rút gọn Shopee
+if (url.includes("s.shopee.")) {
 
-      const response = await fetch(url, {
-  method: "GET",
-  redirect: "follow",
-  headers: {
-    "User-Agent": "Mozilla/5.0"
-  }
-});
+  const expand = await fetch(
+    `https://hoantien-spo.vercel.app/api/expand?url=${encodeURIComponent(url)}`
+  );
 
-finalUrl = response.url;
+  const json = await expand.json();
+
+  finalUrl = json.expandedUrl;
+
+}
 
     }
 
