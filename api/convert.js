@@ -24,11 +24,14 @@ export default async function handler(req, res) {
     if (url.includes("s.shopee.")) {
 
       const response = await fetch(url, {
-        method: "HEAD",
-        redirect: "follow"
-      });
+  method: "GET",
+  redirect: "follow",
+  headers: {
+    "User-Agent": "Mozilla/5.0"
+  }
+});
 
-      finalUrl = response.url;
+finalUrl = response.url;
 
     }
 
