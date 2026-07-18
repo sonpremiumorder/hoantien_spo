@@ -1,137 +1,453 @@
 <!DOCTYPE html>
-<html lang="vi">
+
+<html lang="en">
+
 <head>
-  <base target="_top">
+
   <meta charset="UTF-8">
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <title>SƠN PREMIUM ORDER</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px 20px; background-color: #f9f9f9; }
-    h2 { text-align: center; color: #111; margin-bottom: 30px; font-size: 28px; font-weight: 700; }
-    .input-field { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: bold; }
-    input { width: 100%; padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-    button.generate { width: 100%; padding: 15px; border: none; border-radius: 12px; background: #111; color: white; font-size: 17px; font-weight: bold; cursor: pointer; transition: .3s; }
-    button.generate:hover { background: #e53935; transform: translateY(-2px); }
-    button.generate:disabled { background-color: #ccc; cursor: not-allowed; }
-    
-    .result-section { margin-top: 25px; padding-top: 20px; border-top: 1px dashed #ddd; display: none; }
-    .product-box { display: flex; gap: 12px; border: 1px solid #eee; border-radius: 12px; padding: 12px; margin-bottom: 16px; background: #fff; }
-    .product-img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; }
-    .product-info { display: flex; flex-direction: column; justify-content: space-between; flex: 1; }
-    .product-title { font-size: 14px; font-weight: bold; color: #222; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .product-price { font-size: 16px; font-weight: bold; color: #ff4d24; margin-top: 4px; }
-    .product-commission { background-color: #e6fffb; border: 1px solid #b5f5ec; color: #08979c; font-size: 12px; padding: 2px 8px; border-radius: 10px; font-weight: bold; display: inline-block; margin-top: 4px; }
-    
-    .action-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    button.buy { width: 100%; padding: 14px; border: none; border-radius: 12px; background: #ff4d24; color: white; font-weight: bold; cursor: pointer; }
-    button.copy { width: 100%; padding: 14px; border: 1px solid #ddd; border-radius: 12px; background: #fff; color: #333; font-weight: bold; cursor: pointer; }
-    .note { background-color: #fff3cd; color: #856404; padding: 10px; border-radius: 5px; margin-bottom: 20px; font-size: 14px; }
-    .loader { display: inline-block; width: 16px; height: 16px; margin-right: 8px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: white; animation: spin 0.8s linear infinite; vertical-align: middle; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+
+    body {
+
+      font-family: Arial, sans-serif;
+
+      max-width: 600px;
+
+      margin: 0 auto;
+
+      padding: 30px 20px;
+
+      background-color: #f9f9f9;
+
+    }
+
+    h2{
+
+    text-align:center;
+
+    color:#111;
+
+    margin-bottom:30px;
+
+    font-size:28px;
+
+    font-weight:700;
+
+}
+
+    .input-field {
+
+      margin-bottom: 15px;
+
+    }
+
+    label {
+
+      display: block;
+
+      margin-bottom: 5px;
+
+      font-weight: bold;
+
+    }
+
+    input {
+
+      width: 100%;
+
+      padding: 10px;
+
+      font-size: 16px;
+
+      border: 1px solid #ddd;
+
+      border-radius: 5px;
+
+      box-sizing: border-box;
+
+    }
+
+    button.generate{
+
+
+
+    width:100%;
+
+
+
+    padding:15px;
+
+
+
+    border:none;
+
+
+
+    border-radius:12px;
+
+
+
+    background:#111;
+
+
+
+    color:white;
+
+
+
+    font-size:17px;
+
+
+
+    font-weight:bold;
+
+
+
+    cursor:pointer;
+
+
+
+    transition:.3s;
+
+}
+
+    button.generate:hover{
+
+
+
+    background:#e53935;
+
+
+
+    transform:translateY(-2px);
+
+}
+
+    button.generate:disabled {
+
+      background-color: #f8aa9a;
+
+      cursor: not-allowed;
+
+    }
+
+    .result {
+
+      margin-top: 25px;
+
+    }
+
+    .result-label {
+
+      font-weight: bold;
+
+      margin-bottom: 5px;
+
+    }
+
+    textarea {
+
+      width: 100%;
+
+      height: 80px;
+
+      padding: 10px;
+
+      border: 1px solid #ddd;
+
+      border-radius: 5px;
+
+      font-size: 14px;
+
+      resize: none;
+
+    }
+
+    button.copy{
+
+
+
+    width:100%;
+
+
+
+    padding:14px;
+
+
+
+    border:none;
+
+
+
+    border-radius:12px;
+
+
+
+    background:#444;
+
+
+
+    color:white;
+
+
+
+    font-weight:bold;
+
+
+
+    cursor:pointer;
+
+
+
+    transition:.3s;
+
+}
+
+
+
+button.copy:hover{
+
+
+
+    background:#111;
+
+}
+
+    .small {
+
+      font-size: 14px;
+
+      color: #666;
+
+      margin-top: 10px;
+
+      text-align: center;
+
+    }
+
+    .note {
+
+      background-color: #fff3cd;
+
+      color: #856404;
+
+      padding: 10px;
+
+      border-radius: 5px;
+
+      margin-bottom: 20px;
+
+      font-size: 14px;
+
+    }
+
+    .loader {
+
+      display: inline-block;
+
+      width: 20px;
+
+      height: 20px;
+
+      margin-right: 8px;
+
+      border: 3px solid rgba(255,255,255,.3);
+
+      border-radius: 50%;
+
+      border-top-color: white;
+
+      animation: spin 1s ease-in-out infinite;
+
+      vertical-align: middle;
+
+    }
+
+    @keyframes spin {
+
+      to { transform: rotate(360deg); }
+
+    }
+
   </style>
+
 </head>
+
 <body>
 
   <h2>HOÀN TIỀN MUA SẮM SPO</h2>
-  <div class="note"><strong>Note:</strong> Dán link Shopee đã sao chép bên dưới.</div>
-  
-  <input type="hidden" id="affiliateIdNumber" value="17340760181">
 
-  <div class="input-field">
-    <label for="username">Tên đăng nhập:</label>
-    <input type="text" id="username" placeholder="Nhập tên đăng nhập">
+  <div class="note" id="note">
+
+    <strong>Note:</strong> Dán link Shopee đã sao chép (e.g., <code>s.shopee.sg/xyz</code>) below.
+
   </div>
 
+  
+
+  <!-- ID ẩn, không hiển thị nhưng vẫn dùng được -->
+
+<input type="hidden" id="affiliateIdNumber" value="17340760181">
+
+
+
+<div class="input-field">
+
+  <label for="username">Tên đăng nhập:</label>
+
+  <input type="text" id="username" placeholder="Nhập tên đăng nhập">
+
+</div>
+
+
+
   <div class="input-field">
+
     <label for="inputLink">Shopee Link:</label>
+
     <input type="text" id="inputLink" placeholder="Paste Shopee product link here">
+
   </div>
-  
+
   <button class="generate" id="generateButton" onclick="generateLink()">Chuyển Đổi</button> 
 
-  <div class="result-section" id="resultArea">
-    <div class="product-box">
-      <img id="pImg" src="" alt="Sản phẩm" class="product-img">
-      <div class="product-info">
-        <div id="pTitle" class="product-title">Đang tải tên sản phẩm...</div>
-        <div>
-          <div id="pPrice" class="product-price">0đ</div>
-          <span id="pComm" class="product-commission">Hoa hồng: 0đ</span>
-        </div>
-      </div>
-    </div>
-    
-    <div class="action-group">
-      <button class="buy" onclick="buyNow()">🛒 MUA NGAY</button>
-      <button class="copy" onclick="copyLink()">📋 SAO CHÉP LINK</button>
-    </div>
+  <div class="result">
+
+    <div class="result-label">Link:</div>
+
+    <textarea id="resultLink" readonly></textarea>
+
+    <button class="copy" onclick="buyNow()">🛒 MUA NGAY</button>
+
+    <p class="small" id="copyStatus"></p>
+
   </div>
 
   <script>
-    let realAffiliateLink = "";
+let realAffiliateLink = "";
+    async function expandLink(url) {
 
-    function generateLink() {
+      const response = await fetch(`/api/expand?url=${encodeURIComponent(url)}`);
+
+      const data = await response.json();
+
+      if (data.expandedUrl) return data.expandedUrl;
+
+      throw new Error(data.error || 'Failed to expand link.');
+
+    }
+
+    function generateSubId() {
+
+      return 'vercel-user-click';
+
+    }
+
+    function encodeURL(url) {
+
+      return encodeURIComponent(url);
+
+    }
+
+    function getCleanBaseURL(url) {
+
+      return url.split('?')[0];
+
+    }
+
+    async function generateLink() {
+
       const input = document.getElementById('inputLink').value.trim();
+
+      const affiliateId = document.getElementById('affiliateIdNumber').value.trim();
+
       const username = document.getElementById('username').value.trim();
-      const btn = document.getElementById('generateButton');
-      const resultArea = document.getElementById('resultArea');
 
-      if (!input || !username) {
-        alert('Vui lòng điền đầy đủ thông tin!');
+      const resultArea = document.getElementById('resultLink');
+
+      const copyStatus = document.getElementById('copyStatus');
+
+      const generateButton = document.getElementById('generateButton');
+
+      if (!input || !affiliateId || !username) {
+
+        alert('Please fill in all fields.');
+
         return;
+
       }
 
-      btn.disabled = true;
-      const originalText = btn.innerHTML;
-      btn.innerHTML = '<span class="loader"></span> Đang xử lý...';
+      // Show loading indicator
 
-      if (typeof google !== 'undefined' && google.script) {
-        google.script.run.withSuccessHandler((response) => {
-          btn.innerHTML = originalText;
-          btn.disabled = false;
-          
-          if(response.startsWith("❌") || response.startsWith("⚠️")) {
-            alert(response);
-          } else {
-            try {
-              const data = JSON.parse(response); 
-              if (data && data.success) {
-                realAffiliateLink = data.result; 
-                
-                document.getElementById('pImg').src = data.image; 
-                document.getElementById('pTitle').innerText = data.title;
-                document.getElementById('pPrice').innerText = data.price;
-                document.getElementById('pComm').innerText = "Hoa hồng: " + data.commission;
-                
-                resultArea.style.display = 'block'; 
-              } else {
-                alert("Lỗi: " + (data.error || "Không thể lấy thông tin"));
-              }
-            } catch(e) {
-              alert("Lỗi cấu trúc phản hồi hệ thống.");
-            }
-          }
-        }).withFailureHandler(() => {
-          btn.innerHTML = originalText;
-          btn.disabled = false;
-          alert("Lỗi kết nối Apps Script.");
-        }).SHOPEE(username, input);
+      generateButton.disabled = true;
+
+      const originalButtonText = generateButton.innerHTML;
+
+      generateButton.innerHTML = '<span class="loader"></span> Processing...';
+
+      try {
+
+        let finalUrl = input;
+
+        if (input.includes('s.shopee.')) {
+
+          finalUrl = await expandLink(input);
+
+        }
+
+        // Get clean base URL without any parameters
+
+        finalUrl = getCleanBaseURL(finalUrl);
+
+        const encoded = encodeURL(finalUrl);
+
+        const finalLink =
+`https://s.shopee.sg/an_redir?origin_link=${encoded}&affiliate_id=${affiliateId}&sub_id=${encodeURIComponent(username)}`;
+
+// Lưu link thật
+realAffiliateLink = finalLink;
+
+// Chỉ hiển thị link đã che
+resultArea.value = "https://s.shopee.sg/*******";
+
+copyStatus.textContent = "";
+
+      } catch (err) {
+
+        console.error(err);
+
+        alert('Error generating link: ' + err.message);
+
+      } finally {
+
+        // Restore button state
+
+        generateButton.innerHTML = originalButtonText;
+
+        generateButton.disabled = false;
+
       }
+
     }
 
-    function buyNow() {
-      if (!realAffiliateLink) return alert("Vui lòng chuyển đổi trước.");
-      window.open(realAffiliateLink, "_blank");
+  function buyNow() {
+
+    if (!realAffiliateLink) {
+        alert("Vui lòng chuyển đổi link trước.");
+        return;
     }
 
-    function copyLink() {
-      if (!realAffiliateLink) return alert("Không tìm thấy liên kết.");
-      navigator.clipboard.writeText(realAffiliateLink).then(() => {
-        alert("📋 Đã sao chép liên kết thành công!");
-      });
-    }
+    window.open(realAffiliateLink, "_blank");
+
+}
+
   </script>
+
 </body>
+
 </html>
