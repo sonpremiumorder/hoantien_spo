@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
     let finalUrl = url;
 
-    // 1. Giải mã link rút gọn s.shopee.vn thành link gốc
+    // 1. Giải mã link rút gọn s.shopee.vn để lấy link gốc
     if (url.includes("s.shopee.")) {
       const expand = await fetch(
         `https://hoantien-spo.vercel.app/api/expand?url=${encodeURIComponent(url)}`
@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     finalUrl = finalUrl.split("?")[0];
 
     // ========================================================
-    // ĐOẠN LẤY THÔNG TIN SẢN PHẨM TỰ ĐỘNG (ĐỘNG 100% THEO LINK)
+    // BƯỚC THÊM MỚI: TỰ ĐỘNG CÀO THÔNG TIN SẢN PHẨM (ĐỘNG 100%)
     // ========================================================
     let productTitle = "Sản phẩm liên kết Shopee";
     let productPrice = "Đang cập nhật";
@@ -39,14 +39,15 @@ export default async function handler(req, res) {
     let productCommission = "Đang tính toán";
 
     try {
-      // Tách Shop ID và Item ID từ link gốc của Shopee (ví dụ định dạng: ...i.SHOPID.ITEMID)
+      // Trích xuất Item ID và Shop ID từ URL gốc của Shopee
+      // Cấu hình link Shopee thường có dạng: ...i.SHOPID.ITEMID
       const match = finalUrl.match(/i\.(\d+)\.(\d+)/);
       
       if (match && match[1] && match[2]) {
         const shopId = match[1];
         const itemId = match[2];
 
-        // Gọi thẳng vào API hệ thống công khai của Shopee để lấy thông tin thật
+        // Gọi API công khai của Shopee để lấy thông tin chi tiết item (Không sợ bị chặn)
         const shopeeApiUrl = `https://shopee.vn/api/v4/item/get?itemid=${itemId}&shopid=${shopId}`;
         const shopeeRes = await fetch(shopeeApiUrl, {
           headers: {
@@ -61,20 +62,21 @@ export default async function handler(req, res) {
           const itemData = resJson.data;
 
           if (itemData) {
-            // Lấy tên thật sản phẩm vừa dán
+            // Lấy tên thật sản phẩm
             productTitle = itemData.name || productTitle;
             
-            // Lấy ảnh gốc thật của sản phẩm vừa dán
+            // Lấy ảnh thật sản phẩm
             if (itemData.image) {
               productImg = `https://down-vn.img.susercontent.com/file/${itemData.image}`;
             }
 
-            // Lấy giá thật (Shopee lưu đơn vị nhân 100.000 nên phải chia lại)
+            // Lấy giá thật (Shopee trả về giá nhân cho 100.000 nên cần chia lại)
             if (itemData.price) {
               const realPrice = itemData.price / 100000;
               productPrice = "₫" + realPrice.toLocaleString('vi-VN');
               
-              // Tự động tính tiền hoa hồng động (Ví dụ bạn trích lại 15% giá trị sản phẩm)
+              // Giả lập tính toán hoa hồng (Ví dụ: Trung bình ngành là 10% - 15%)
+              // Bạn có thể đổi số 0.15 (15%) thành phần trăm bạn muốn cắt lại cho khách
               const commMoney = Math.round(realPrice * 0.15); 
               productCommission = "₫" + commMoney.toLocaleString('vi-VN') + " (15%)";
             }
@@ -82,22 +84,23 @@ export default async function handler(req, res) {
         }
       }
     } catch (scrapeErr) {
-      console.error("Lỗi lấy thông tin Shopee:", scrapeErr.message);
+      console.error("Lỗi cào dữ liệu sản phẩm:", scrapeErr.message);
+      // Nếu lỗi thì giữ nguyên thông tin mặc định để không chết App
     }
     // ========================================================
 
-    // 2. Tạo link Affiliate đóng gói của bạn
+    // 2. Tạo link Affiliate đóng gói
     const affiliateId = "17340760181";
     const affiliateLink = `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(finalUrl)}&affiliate_id=${affiliateId}&sub_id=${encodeURIComponent(username)}`;
 
-    // 3. Trả về cục dữ liệu động ĐẦY ĐỦ cho Google Apps Script
+    // 3. Trả về đầy đủ dữ liệu dạng JSON cho Apps Script đọc
     return res.status(200).json({
       success: true,
-      result: affiliateLink,    
-      title: productTitle,       
-      price: productPrice,       
-      image: productImg,         
-      commission: productCommission 
+      result: affiliateLink,    // Link cho nút bấm
+      title: productTitle,       // Tên sản phẩm động
+      price: productPrice,       // Giá động
+      image: productImg,         // Ảnh động
+      commission: productCommission // Hoa hồng động
     });
 
   } catch (err) {
