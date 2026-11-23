@@ -5,8 +5,16 @@ const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn")
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
 const LAZADA_PARTNER_ID = process.env.LAZADA_PARTNER_ID || "lazop-sdk-php-affiliate-1.0";
 
+const SHP_TODAY_API_URL = process.env.SHP_TODAY_API_URL || "https://shp.today/create-link.php";
+const SHP_TODAY_API_KEY =
+  process.env.SHP_TODAY_API_KEY || "st_d37cd31cbe20cb8dabdec3d1cbf1714c0c8d3035";
+
 function jsonError(res, status, error) {
   return res.status(status).json({ success: false, error });
+}
+
+function sanitizeSubId(raw) {
+  return String(raw || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 50);
 }
 
 function detectPlatform(rawUrl) {
@@ -49,6 +57,40 @@ async function expandShortUrl(url, platform) {
     throw new Error("Link sau khi mở rộng không thuộc đúng nền tảng.");
   }
   return finalUrl;
+}
+
+async function createViaShpTodayApi(targetUrl, username) {
+  if (!SHP_TODAY_API_KEY) {
+    throw new Error("Thiếu SHP_TODAY_API_KEY.");
+  }
+
+  const sub1 = sanitizeSubId(username);
+  const params = new URLSearchParams({ api: "1", url: targetUrl });
+  if (sub1) params.set("sub1", sub1);
+
+  const response = await fetch(`${SHP_TODAY_API_URL}?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      "X-API-Key": SHP_TODAY_API_KEY,
+      "Accept": "text/plain, application/json, */*"
+    },
+    signal: AbortSignal.timeout(20000)
+  });
+
+  const raw = (await response.text()).trim();
+  if (!response.ok || /^error\b/i.test(raw)) {
+    throw new Error(raw || `shp.today HTTP ${response.status}`);
+  }
+
+  const firstLine = raw.split(/\r?\n/)[0].trim();
+  if (/^https?:\/\/\S+$/i.test(firstLine)) {
+    return firstLine;
+  }
+
+  const data = JSON.parse(raw);
+  const link = data.link || data.url || data.short_url || data.result;
+  if (!link) throw new Error("shp.today không trả về link.");
+  return String(link).trim();
 }
 
 function cleanLazadaUrl(rawUrl) {
@@ -153,7 +195,6 @@ async function createLazadaAffiliateLink(originalUrl, username) {
     throw new Error(`Lazada HTTP ${response.status}: ${data.message || data.msg || raw.slice(0, 250)}`);
   }
 
-  // Affiliate API thường trả code "0" khi thành công; vẫn kiểm tra lỗi rõ ràng.
   if (data.code !== undefined && String(data.code) !== "0") {
     throw new Error(`Lazada API ${data.code}: ${data.message || data.msg || "Không tạo được tracking link"}`);
   }
@@ -167,20 +208,7 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   return affiliateUrl;
 }
 
-async function createShopeeAffiliateLink(originalUrl, username) {
-  let finalUrl = originalUrl;
-
-  if (/shp\.ee|s\.shopee\./i.test(originalUrl)) {
-    finalUrl = await expandShortUrl(originalUrl, "shopee");
-  }
-
-  // Giữ nguyên cách tạo affiliate link Shopee đang dùng.
-  const cleanUrl = finalUrl.split("?")[0];
-  const affiliateLink =
-    `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(cleanUrl)}` +
-    `&affiliate_id=${encodeURIComponent(SHOPEE_AFFILIATE_ID)}` +
-    `&sub_id=${encodeURIComponent(username)}`;
-
+async function fetchShopeeMetadata(cleanUrl) {
   let productTitle = "Sản phẩm Shopee";
   let productPrice = "Đang cập nhật";
   let productImg = "https://placehold.co/100x100?text=Shopee";
@@ -215,12 +243,42 @@ async function createShopeeAffiliateLink(originalUrl, username) {
     console.error("Shopee product metadata error:", err.message);
   }
 
+  return { productTitle, productPrice, productImg, productCommission };
+}
+
+async function createShopeeAffiliateLink(originalUrl, username) {
+  let finalUrl = originalUrl;
+
+  if (/shp\.ee|s\.shopee\./i.test(originalUrl)) {
+    finalUrl = await expandShortUrl(originalUrl, "shopee");
+  }
+
+  const cleanUrl = finalUrl.split("?")[0];
+  let affiliateLink = "";
+
+  if (SHP_TODAY_API_KEY) {
+    try {
+      affiliateLink = await createViaShpTodayApi(finalUrl, username);
+    } catch (shpErr) {
+      console.warn("shp.today Shopee failed, fallback:", shpErr.message);
+    }
+  }
+
+  if (!affiliateLink) {
+    affiliateLink =
+      `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(cleanUrl)}` +
+      `&affiliate_id=${encodeURIComponent(SHOPEE_AFFILIATE_ID)}` +
+      `&sub_id=${encodeURIComponent(username)}`;
+  }
+
+  const meta = await fetchShopeeMetadata(cleanUrl);
+
   return {
     result: affiliateLink,
-    title: productTitle,
-    price: productPrice,
-    image: productImg,
-    commission: productCommission
+    title: meta.productTitle,
+    price: meta.productPrice,
+    image: meta.productImg,
+    commission: meta.productCommission
   };
 }
 
@@ -247,7 +305,6 @@ export default async function handler(req, res) {
     }
 
     if (!isAllowedPlatformHost(inputUrl, platform)) {
-      // Chỉ short domain đã định danh mới được mở rộng.
       return jsonError(res, 400, "Tên miền link không được hỗ trợ.");
     }
 
@@ -257,7 +314,13 @@ export default async function handler(req, res) {
     }
 
     if (platform === "lazada") {
-      const result = await createLazadaAffiliateLink(inputUrl, username);
+      let result = "";
+      try {
+        result = await createLazadaAffiliateLink(inputUrl, username);
+      } catch (lazErr) {
+        if (!SHP_TODAY_API_KEY) throw lazErr;
+        result = await createViaShpTodayApi(inputUrl, username);
+      }
       return res.status(200).json({
         success: true,
         platform: "lazada",
