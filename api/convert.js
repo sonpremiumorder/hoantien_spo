@@ -12,6 +12,10 @@ function jsonError(res, status, error) {
   return res.status(status).json({ success: false, error });
 }
 
+function sanitizeSubId(raw) {
+  return String(raw || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 50);
+}
+
 function detectPlatform(rawUrl) {
   let u;
   try { u = new URL(rawUrl); } catch { return null; }
@@ -70,23 +74,6 @@ async function expandShortUrl(url, platform) {
     throw new Error("Link sau khi mở rộng không thuộc đúng nền tảng.");
   }
   return finalUrl;
-}
-
-function formatVnd(val) {
-  if (val == null || val === "") return "";
-  if (typeof val === "string" && /[đ₫]/i.test(val)) return val.trim();
-  const num = Number(String(val).replace(/[^\d.-]/g, ""));
-  if (!Number.isFinite(num) || num <= 0) return String(val);
-  return Math.round(num).toLocaleString("vi-VN") + "đ";
-}
-
-function formatPercent(val) {
-  if (val == null || val === "") return "";
-  const str = String(val).trim();
-  if (str.endsWith("%")) return str;
-  const num = Number(str.replace(",", "."));
-  if (!Number.isFinite(num) || num <= 0) return "";
-  return num.toLocaleString("vi-VN", { maximumFractionDigits: 1 }) + "%";
 }
 
 function cleanLazadaUrl(rawUrl) {
@@ -152,18 +139,18 @@ async function createViaShpTodayApi(targetUrl, username, platform) {
     throw new Error("Chưa cấu hình SHP_TODAY_API_KEY trên Vercel.");
   }
 
+  const sub1 = sanitizeSubId(username);
   const params = new URLSearchParams({
     api: "1",
-    format: "json",
-    sub1: String(username).slice(0, 100),
     url: targetUrl
   });
+  if (sub1) params.set("sub1", sub1);
 
   const response = await fetch(`${SHP_TODAY_API_URL}?${params.toString()}`, {
     method: "GET",
     headers: {
       "X-API-Key": SHP_TODAY_API_KEY,
-      "Accept": "application/json, text/plain, */*"
+      "Accept": "text/plain, application/json, */*"
     },
     signal: AbortSignal.timeout(20000)
   });
@@ -174,50 +161,25 @@ async function createViaShpTodayApi(targetUrl, username, platform) {
     throw new Error(`API shp.today HTTP ${response.status}: ${raw.slice(0, 250)}`);
   }
 
-  // Trường hợp API trả về 1 dòng text là link rút gọn
-  if (/^https?:\/\/\S+$/i.test(raw)) {
-    return {
-      result: raw,
-      title: "",
-      price: "",
-      image: "",
-      commission: "",
-      commission_pct: ""
-    };
+  if (/^error\b/i.test(raw)) {
+    throw new Error(raw);
+  }
+
+  const firstLine = raw.split(/\r?\n/)[0].trim();
+  if (/^https?:\/\/\S+$/i.test(firstLine)) {
+    return firstLine;
   }
 
   let data;
   try { data = JSON.parse(raw); }
-  catch { throw new Error(`API shp.today trả về lỗi (${platform}): ` + raw.slice(0, 250)); }
+  catch { throw new Error(`API shp.today trả về dữ liệu không hợp lệ (${platform}): ` + raw.slice(0, 250)); }
 
-  const info = data.data && typeof data.data === "object" ? data.data : data;
-  const link = info.link || info.url || info.short_url || info.result || data.link;
-
+  const link = data.link || data.url || data.short_url || data.result;
   if (!link || data.ok === false || data.success === false) {
     throw new Error(data.error || data.message || `API shp.today không tạo được link ${platform}.`);
   }
 
-  const rawPrice = info.price || info.product_price || info.sale_price || "";
-  const rawCommission = info.user_commission || info.cashback || info.commission || info.estimated_commission || "";
-  let rawPct = info.user_commission_pct || info.commission_pct || info.commission_rate || info.rate || info.percent || "";
-
-  // Tự tính % nếu có tiền hoàn & giá nhưng chưa có trường %
-  if (!rawPct && rawPrice && rawCommission) {
-    const p = Number(String(rawPrice).replace(/[^\d.]/g, ""));
-    const c = Number(String(rawCommission).replace(/[^\d.]/g, ""));
-    if (p > 0 && c > 0) {
-      rawPct = ((c / p) * 100).toFixed(1);
-    }
-  }
-
-  return {
-    result: link,
-    title: info.title || info.product_name || info.name || "",
-    price: formatVnd(rawPrice),
-    image: info.image || info.cover || info.thumbnail || info.product_image || "",
-    commission: formatVnd(rawCommission),
-    commission_pct: formatPercent(rawPct)
-  };
+  return link;
 }
 
 async function createLazadaAffiliateLink(originalUrl, username) {
@@ -279,10 +241,8 @@ async function createLazadaAffiliateLink(originalUrl, username) {
 
 async function fetchShopeeMetadata(cleanUrl) {
   let productTitle = "Sản phẩm Shopee";
-  let productPrice = "Đang cập nhật";
+  let productPrice = "";
   let productImg = "https://placehold.co/100x100?text=Shopee";
-  let productCommission = "";
-  let productCommissionPct = "";
 
   try {
     const match = cleanUrl.match(/i\.(\d+)\.(\d+)/);
@@ -313,7 +273,7 @@ async function fetchShopeeMetadata(cleanUrl) {
     console.error("Shopee product metadata error:", err.message);
   }
 
-  return { productTitle, productPrice, productImg, productCommission, productCommissionPct };
+  return { productTitle, productPrice, productImg };
 }
 
 async function createShopeeAffiliateLink(originalUrl, username) {
@@ -336,8 +296,8 @@ async function createShopeeAffiliateLink(originalUrl, username) {
     title: meta.productTitle,
     price: meta.productPrice,
     image: meta.productImg,
-    commission: meta.productCommission,
-    commission_pct: meta.productCommissionPct
+    commission: "",
+    commission_pct: ""
   };
 }
 
@@ -373,35 +333,35 @@ export default async function handler(req, res) {
       inputUrl = await expandShortUrl(inputUrl, platform);
     }
 
-    const defaultLabels = {
-      shopee: { title: "Sản phẩm Shopee", image: "https://placehold.co/100x100?text=Shopee" },
-      lazada: { title: "Sản phẩm Lazada", image: "https://placehold.co/100x100?text=Lazada" },
-      tiktok: { title: "Sản phẩm TikTok Shop", image: "https://placehold.co/100x100?text=TikTok" }
+    const defaults = {
+      shopee: { title: "Sản phẩm Shopee", price: "", image: "https://placehold.co/100x100?text=Shopee" },
+      lazada: { title: "Sản phẩm Lazada", price: "", image: "https://placehold.co/100x100?text=Lazada" },
+      tiktok: { title: "Sản phẩm TikTok Shop", price: "", image: "https://placehold.co/100x100?text=TikTok" }
     };
 
     if (SHP_TODAY_API_KEY) {
       try {
-        const apiData = await createViaShpTodayApi(inputUrl, cleanUsername, platform);
-        let title = apiData.title || defaultLabels[platform].title;
-        let price = apiData.price || "Đang cập nhật";
-        let image = apiData.image || defaultLabels[platform].image;
+        const apiLink = await createViaShpTodayApi(inputUrl, cleanUsername, platform);
+        let title = defaults[platform].title;
+        let price = defaults[platform].price;
+        let image = defaults[platform].image;
 
-        if (platform === "shopee" && (!apiData.title || !apiData.image)) {
+        if (platform === "shopee") {
           const meta = await fetchShopeeMetadata(inputUrl.split("?")[0]);
-          if (!apiData.title) title = meta.productTitle;
-          if (!apiData.price) price = meta.productPrice;
-          if (!apiData.image) image = meta.productImg;
+          title = meta.productTitle;
+          price = meta.productPrice;
+          image = meta.productImg;
         }
 
         return res.status(200).json({
           success: true,
           platform,
-          result: apiData.result,
+          result: apiLink,
           title,
           price,
           image,
-          commission: apiData.commission || "",
-          commission_pct: apiData.commission_pct || ""
+          commission: "",
+          commission_pct: ""
         });
       } catch (apiErr) {
         console.warn(`SHP_TODAY API failed for ${platform}, fallback if supported:`, apiErr.message);
@@ -415,9 +375,9 @@ export default async function handler(req, res) {
         success: true,
         platform: "lazada",
         result,
-        title: "Sản phẩm Lazada",
-        price: "Đang cập nhật",
-        image: "https://placehold.co/100x100?text=Lazada",
+        title: defaults.lazada.title,
+        price: defaults.lazada.price,
+        image: defaults.lazada.image,
         commission: "",
         commission_pct: ""
       });
