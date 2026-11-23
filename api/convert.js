@@ -1,9 +1,11 @@
 import crypto from "crypto";
-
 const SHOPEE_AFFILIATE_ID = process.env.SHOPEE_AFFILIATE_ID || "17340760181";
 const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn").replace(/\/+$/, "");
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
 const LAZADA_PARTNER_ID = process.env.LAZADA_PARTNER_ID || "lazop-sdk-php-affiliate-1.0";
+
+const TIKTOK_CONVERT_URL = process.env.TIKTOK_CONVERT_URL || "";
+const TIKTOK_API_KEY = process.env.TIKTOK_API_KEY || "";
 
 const SHP_TODAY_API_URL = process.env.SHP_TODAY_API_URL || "https://shp.today/create-link.php";
 const SHP_TODAY_API_KEY = process.env.SHP_TODAY_API_KEY || "";
@@ -113,7 +115,7 @@ async function createViaShpTodayApi(targetUrl, username) {
   const data = JSON.parse(raw);
   const link = data.link || data.url || data.short_url || data.result;
   if (!link) throw new Error("API shp.today không trả về link.");
-  return link;
+  return String(link).trim();
 }
 
 function cleanLazadaUrl(rawUrl) {
@@ -229,6 +231,61 @@ async function createShopeeAffiliateLink(originalUrl, username) {
   );
 }
 
+async function createTiktokAffiliateLink(originalUrl, username) {
+  if (!TIKTOK_CONVERT_URL) {
+    throw new Error("Chưa cấu hình TIKTOK_CONVERT_URL.");
+  }
+
+  const headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json, text/plain, */*"
+  };
+  if (TIKTOK_API_KEY) {
+    headers["Authorization"] = `Bearer ${TIKTOK_API_KEY.replace(/^Bearer\s+/i, "").trim()}`;
+  }
+
+  const response = await fetch(TIKTOK_CONVERT_URL, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ url: originalUrl, username }),
+    signal: AbortSignal.timeout(20000)
+  });
+
+  const raw = await response.text();
+  let json;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    throw new Error(`TikTok API trả về dữ liệu không hợp lệ (HTTP ${response.status})`);
+  }
+
+  const link =
+    json.result ||
+    json.url ||
+    json.link ||
+    json.affiliate_url ||
+    (json.data && (json.data.result || json.data.url || json.data.link || json.data.affiliate_url));
+
+  if (!response.ok || !link) {
+    throw new Error(json.error || json.message || "TikTok API không trả về link.");
+  }
+
+  return String(link).trim();
+}
+
+async function createDirectPlatformLink(platform, inputUrl, cleanUsername) {
+  if (platform === "shopee") {
+    return await createShopeeAffiliateLink(inputUrl, cleanUsername);
+  }
+  if (platform === "lazada") {
+    return await createLazadaAffiliateLink(inputUrl, cleanUsername);
+  }
+  if (platform === "tiktok") {
+    return await createTiktokAffiliateLink(inputUrl, cleanUsername);
+  }
+  throw new Error("Nền tảng không được hỗ trợ.");
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, error: "Method not allowed" });
@@ -266,14 +323,16 @@ export default async function handler(req, res) {
 
     let resultLink = "";
 
-    if (platform === "lazada") {
-      resultLink = await createLazadaAffiliateLink(inputUrl, cleanUsername);
-    } else if (platform === "shopee") {
-      resultLink = await createShopeeAffiliateLink(inputUrl, cleanUsername);
-    } else if (SHP_TODAY_API_KEY) {
-      resultLink = await createViaShpTodayApi(inputUrl, cleanUsername);
-    } else {
-      return jsonError(res, 502, "Không thể tạo link cho nền tảng này.");
+    if (SHP_TODAY_API_KEY) {
+      try {
+        resultLink = await createViaShpTodayApi(inputUrl, cleanUsername);
+      } catch (shpErr) {
+        console.warn("shp.today failed, falling back to direct platform:", shpErr.message);
+      }
+    }
+
+    if (!resultLink) {
+      resultLink = await createDirectPlatformLink(platform, inputUrl, cleanUsername);
     }
 
     return res.status(200).json({
