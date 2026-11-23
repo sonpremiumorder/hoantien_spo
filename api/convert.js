@@ -1,8 +1,14 @@
 import crypto from "crypto";
+
 const SHOPEE_AFFILIATE_ID = process.env.SHOPEE_AFFILIATE_ID || "17340760181";
 const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn").replace(/\/+$/, "");
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
 const LAZADA_PARTNER_ID = process.env.LAZADA_PARTNER_ID || "lazop-sdk-php-affiliate-1.0";
+
+const RIOHUB_BASE_URL = (process.env.RIOHUB_BASE_URL || "https://riohub.riokupon.com").replace(/\/+$/, "");
+const RIOHUB_API_PATH = process.env.RIOHUB_API_PATH || "/api/tiktok-affiliate/convert";
+const RIOHUB_API_KEY = process.env.RIOHUB_API_KEY || "";
+const TIKTOK_CREATOR_USERNAME = process.env.TIKTOK_CREATOR_USERNAME || "";
 
 function jsonError(res, status, error) {
   return res.status(status).json({ success: false, error });
@@ -19,6 +25,9 @@ function detectPlatform(rawUrl) {
   if (/(^|\.)lazada\.(vn|sg|co\.th|com\.my|com\.ph|co\.id)$/.test(host) ||
       /(^|\.)lzd\.co$/.test(host)) return "lazada";
 
+  if (/(^|\.)tiktok\.com$/.test(host) ||
+      /^(vm|vt|m|shop)\.tiktok\.com$/.test(host)) return "tiktok";
+
   return null;
 }
 
@@ -27,13 +36,28 @@ function isAllowedPlatformHost(rawUrl, platform) {
     const u = new URL(rawUrl);
     if (u.protocol !== "https:" && u.protocol !== "http:") return false;
     const h = u.hostname.toLowerCase();
+
     if (platform === "shopee") {
       return /(^|\.)shopee\.(vn|sg|com\.my|co\.th|ph|co\.id)$/.test(h) ||
              /(^|\.)shp\.ee$/.test(h);
     }
-    return /(^|\.)lazada\.(vn|sg|co\.th|com\.my|com\.ph|co\.id)$/.test(h) ||
-           /(^|\.)lzd\.co$/.test(h);
+    if (platform === "lazada") {
+      return /(^|\.)lazada\.(vn|sg|co\.th|com\.my|com\.ph|co\.id)$/.test(h) ||
+             /(^|\.)lzd\.co$/.test(h);
+    }
+    if (platform === "tiktok") {
+      return /(^|\.)tiktok\.com$/.test(h) ||
+             /^(vm|vt|m|shop)\.tiktok\.com$/.test(h);
+    }
+    return false;
   } catch { return false; }
+}
+
+function isShortUrl(rawUrl, platform) {
+  if (platform === "shopee") return /shp\.ee|s\.shopee\./i.test(rawUrl);
+  if (platform === "lazada") return /s\.lazada\.vn|lzd\.co/i.test(rawUrl);
+  if (platform === "tiktok") return /(?:^|\.)(?:vm|vt)\.tiktok\.com\//i.test(rawUrl);
+  return false;
 }
 
 async function expandShortUrl(url, platform) {
@@ -73,34 +97,35 @@ function lazadaSignature(apiPath, allParams, secret) {
     .toUpperCase();
 }
 
-function findAffiliateUrl(value, depth = 0) {
+function findAffiliateUrl(value, allowedRegex = /(lazada|lzd\.co|c\.lazada|tiktok\.com|vt\.tiktok\.com|vm\.tiktok\.com)/i, depth = 0) {
   if (depth > 8 || value == null) return "";
   if (typeof value === "string") {
-    if (/^https?:\/\/\S+$/i.test(value) &&
-        /(lazada|lzd\.co|c\.lazada)/i.test(value)) return value;
+    if (/^https?:\/\/\S+$/i.test(value) && allowedRegex.test(value)) return value;
     return "";
   }
   if (Array.isArray(value)) {
     for (const item of value) {
-      const found = findAffiliateUrl(item, depth + 1);
+      const found = findAffiliateUrl(item, allowedRegex, depth + 1);
       if (found) return found;
     }
     return "";
   }
   if (typeof value === "object") {
     const preferred = [
-      "trackingUrl", "tracking_url", "shortLink", "shortUrl",
-      "promotionUrl", "clickUrl", "affiliateUrl", "url", "link"
+      "trackingUrl", "tracking_url", "affiliateUrl", "affiliate_url",
+      "shortLink", "shortUrl", "short_link", "short_url",
+      "promotionUrl", "promotion_url", "clickUrl", "click_url",
+      "url", "link"
     ];
     for (const key of preferred) {
       if (value[key]) {
-        const found = findAffiliateUrl(value[key], depth + 1);
+        const found = findAffiliateUrl(value[key], allowedRegex, depth + 1);
         if (found) return found;
       }
     }
     for (const [key, item] of Object.entries(value)) {
       if (!preferred.includes(key)) {
-        const found = findAffiliateUrl(item, depth + 1);
+        const found = findAffiliateUrl(item, allowedRegex, depth + 1);
         if (found) return found;
       }
     }
@@ -152,12 +177,11 @@ async function createLazadaAffiliateLink(originalUrl, username) {
     throw new Error(`Lazada HTTP ${response.status}: ${data.message || data.msg || raw.slice(0, 250)}`);
   }
 
-  // Affiliate API thường trả code "0" khi thành công; vẫn kiểm tra lỗi rõ ràng.
   if (data.code !== undefined && String(data.code) !== "0") {
     throw new Error(`Lazada API ${data.code}: ${data.message || data.msg || "Không tạo được tracking link"}`);
   }
 
-  const affiliateUrl = findAffiliateUrl(data);
+  const affiliateUrl = findAffiliateUrl(data, /(lazada|lzd\.co|c\.lazada)/i);
   if (!affiliateUrl) {
     throw new Error("Lazada API phản hồi nhưng chưa tìm thấy trường link affiliate. Phản hồi: " +
       JSON.stringify(data).slice(0, 500));
@@ -166,14 +190,67 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   return affiliateUrl;
 }
 
+async function createTikTokAffiliateLink(originalUrl, username) {
+  const apiKey = RIOHUB_API_KEY;
+  const creatorUsername = TIKTOK_CREATOR_USERNAME;
+
+  if (!apiKey || !creatorUsername) {
+    throw new Error("Chưa cấu hình RIOHUB_API_KEY và TIKTOK_CREATOR_USERNAME trên Vercel.");
+  }
+
+  const endpoint = `${RIOHUB_BASE_URL}${RIOHUB_API_PATH}`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+      "X-API-Key": apiKey
+    },
+    body: JSON.stringify({
+      url: originalUrl,
+      creator_username: creatorUsername,
+      sub_id: String(username).slice(0, 100)
+    }),
+    signal: AbortSignal.timeout(20000)
+  });
+
+  const raw = await response.text();
+  let data;
+  try { data = JSON.parse(raw); }
+  catch { throw new Error("RioHub trả về dữ liệu không phải JSON: " + raw.slice(0, 250)); }
+
+  if (!response.ok) {
+    throw new Error(`RioHub HTTP ${response.status}: ${data.error || data.message || data.msg || raw.slice(0, 250)}`);
+  }
+
+  if (data.success === false) {
+    throw new Error(`RioHub lỗi: ${data.error || data.message || "Không tạo được link TikTok"}`);
+  }
+
+  const affiliateUrl = findAffiliateUrl(data, /tiktok\.com/i);
+  if (!affiliateUrl) {
+    throw new Error("RioHub phản hồi nhưng chưa tìm thấy link affiliate: " + JSON.stringify(data).slice(0, 400));
+  }
+
+  const info = data.data && typeof data.data === "object" ? data.data : data;
+
+  return {
+    result: affiliateUrl,
+    title: info.title || info.product_title || info.name || "Sản phẩm TikTok Shop",
+    price: info.price || info.formatted_price || "Đang cập nhật",
+    image: info.image || info.cover || info.thumbnail || "https://placehold.co/100x100?text=TikTok",
+    commission: info.commission || info.commission_rate || "Theo báo cáo TikTok Shop"
+  };
+}
+
 async function createShopeeAffiliateLink(originalUrl, username) {
   let finalUrl = originalUrl;
 
-  if (/shp\.ee|s\.shopee\./i.test(originalUrl)) {
+  if (isShortUrl(originalUrl, "shopee")) {
     finalUrl = await expandShortUrl(originalUrl, "shopee");
   }
 
-  // Giữ nguyên cách tạo affiliate link Shopee đang dùng.
   const cleanUrl = finalUrl.split("?")[0];
   const affiliateLink =
     `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(cleanUrl)}` +
@@ -240,18 +317,16 @@ export default async function handler(req, res) {
       return jsonError(res, 400, "Chỉ chấp nhận link HTTP/HTTPS");
     }
 
-    let platform = detectPlatform(inputUrl);
+    const platform = detectPlatform(inputUrl);
     if (!platform) {
-      return jsonError(res, 400, "Link không thuộc Shopee hoặc Lazada được hỗ trợ.");
+      return jsonError(res, 400, "Link không thuộc Shopee, Lazada hoặc TikTok được hỗ trợ.");
     }
 
     if (!isAllowedPlatformHost(inputUrl, platform)) {
-      // Chỉ short domain đã định danh mới được mở rộng.
       return jsonError(res, 400, "Tên miền link không được hỗ trợ.");
     }
 
-    if ((platform === "lazada" && /s\.lazada\.vn|lzd\.co/i.test(inputUrl)) ||
-        (platform === "shopee" && /shp\.ee|s\.shopee\./i.test(inputUrl))) {
+    if (isShortUrl(inputUrl, platform)) {
       inputUrl = await expandShortUrl(inputUrl, platform);
     }
 
@@ -266,6 +341,11 @@ export default async function handler(req, res) {
         image: "https://placehold.co/100x100?text=Lazada",
         commission: "Theo báo cáo Lazada"
       });
+    }
+
+    if (platform === "tiktok") {
+      const tiktokData = await createTikTokAffiliateLink(inputUrl, String(username).trim());
+      return res.status(200).json({ success: true, platform: "tiktok", ...tiktokData });
     }
 
     const result = await createShopeeAffiliateLink(inputUrl, String(username).trim());
