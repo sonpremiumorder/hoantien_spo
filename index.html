@@ -361,14 +361,14 @@
         <div class="product-info">
           <div id="productTitle" class="product-title">Sản phẩm</div>
           <div class="product-meta">
-            <span id="productPrice" class="product-price">Đang cập nhật</span>
+            <span id="productPrice" class="product-price" style="display: none;"></span>
             <span id="productCommissionBadge" class="product-commission" style="display: none;"></span>
           </div>
         </div>
       </div>
 
       <label class="input-label">Thông tin sản phẩm & link hoàn tiền:</label>
-      <textarea id="resultOutput" class="result-box" rows="5" readonly></textarea>
+      <textarea id="resultOutput" class="result-box" rows="4" readonly></textarea>
 
       <div class="action-group">
         <button class="btn-copy" onclick="copyResultText()">
@@ -390,7 +390,6 @@
 
   <script>
     let realAffiliateLink = "";
-    let detectedPlatform = "";
 
     function detectPlatform(url) {
       const value = String(url || "").toLowerCase();
@@ -411,17 +410,19 @@
     function showConvertedResult(payload, platformLabel) {
       const affiliateUrl = typeof payload === "string" ? payload : payload.result;
       const product = (typeof payload === "object" && payload.title) ? payload.title : ("Sản phẩm " + platformLabel);
-      const price = (typeof payload === "object" && payload.price) ? payload.price : "Đang cập nhật";
+      const price = (typeof payload === "object" && payload.price) ? payload.price : "";
       const image = (typeof payload === "object" && payload.image) ? payload.image : "https://placehold.co/100x100?text=" + platformLabel;
       const commission = (typeof payload === "object" && payload.commission) ? payload.commission : "";
       const commissionPct = (typeof payload === "object" && payload.commission_pct) ? payload.commission_pct : "";
 
       realAffiliateLink = affiliateUrl;
-      detectedPlatform = platformLabel;
 
       document.getElementById('productImg').src = image;
       document.getElementById('productTitle').textContent = product;
-      document.getElementById('productPrice').textContent = price;
+
+      const priceEl = document.getElementById('productPrice');
+      priceEl.textContent = price || "";
+      priceEl.style.display = price ? "inline" : "none";
 
       const badge = document.getElementById('productCommissionBadge');
       const pctText = commissionPct ? `(${commissionPct})` : "";
@@ -481,26 +482,38 @@
 
       if (typeof google !== 'undefined' && google.script && google.script.run) {
         google.script.run
-          .withSuccessHandler((response) => {
+          .withSuccessHandler((res) => {
             btn.innerHTML = originalText;
             btn.disabled = false;
 
-            if (typeof response !== "string") {
-              alert("❌ Phản hồi máy chủ không hợp lệ.");
+            if (!res) {
+              alert("❌ Phản hồi máy chủ rỗng.");
               return;
             }
-            if (response.startsWith("❌") || response.startsWith("⚠️")) {
-              alert(response);
+            if (typeof res === "string") {
+              if (res.startsWith("❌") || res.startsWith("⚠️")) {
+                alert(res);
+                return;
+              }
+              showConvertedResult(res, platform);
               return;
             }
-            showConvertedResult(response, platform);
+            if (!res.ok || !res.result) {
+              alert(res.error || "❌ Không thể chuyển đổi link.");
+              return;
+            }
+            const label = res.platform === "tiktok" ? "TikTok"
+              : res.platform === "lazada" ? "Lazada"
+              : res.platform === "shopee" ? "Shopee"
+              : platform;
+            showConvertedResult(res, label);
           })
           .withFailureHandler((err) => {
             btn.innerHTML = originalText;
             btn.disabled = false;
             alert("❌ Lỗi kết nối hệ thống Apps Script: " + (err && err.message ? err.message : ""));
           })
-          .CONVERT_LINK(username, input);
+          .CONVERT_LINK_DETAIL(username, input);
         return;
       }
 
