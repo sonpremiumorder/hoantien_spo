@@ -5,15 +5,26 @@ const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn")
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
 const LAZADA_PARTNER_ID = process.env.LAZADA_PARTNER_ID || "lazop-sdk-php-affiliate-1.0";
 
+const FLEXU_CONVERT_URL = process.env.FLEXU_CONVERT_URL || "https://api.flexu.vn/api/links/convert";
+const FLEXU_BEARER_TOKEN = process.env.FLEXU_BEARER_TOKEN || "";
+
 const SHP_TODAY_API_URL = process.env.SHP_TODAY_API_URL || "https://shp.today/create-link.php";
 const SHP_TODAY_API_KEY = process.env.SHP_TODAY_API_KEY || "";
 
-function jsonError(res, status, error) {
-  return res.status(status).json({ success: false, error });
+const NO_COMMISSION_MSG =
+  "⚠️ Sản phẩm này không nằm trong chương trình hoa hồng nên bot không tạo link hoàn tiền được ạ ❤️\n" +
+  "Bạn vẫn mua bình thường được nhưng sẽ KHÔNG có tiền hoàn. Muốn được hoàn tiền thì chọn sản phẩm khác rồi gửi link lại giúp mình nha.";
+
+function jsonError(res, status, error, extra = {}) {
+  return res.status(status).json({ success: false, error, ...extra });
 }
 
 function sanitizeSubId(raw) {
   return String(raw || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 50);
+}
+
+function isShpTodayLink(url) {
+  return /shp\.today/i.test(String(url || ""));
 }
 
 function detectPlatform(rawUrl) {
@@ -76,6 +87,82 @@ async function expandShortUrl(url, platform) {
   return finalUrl;
 }
 
+async function createViaFlexuApi(targetUrl) {
+  if (!FLEXU_BEARER_TOKEN) {
+    throw new Error("Chưa cấu hình FLEXU_BEARER_TOKEN trên Vercel.");
+  }
+
+  const tokenValue = FLEXU_BEARER_TOKEN.replace(/^Bearer\s+/i, "").trim();
+  const response = await fetch(FLEXU_CONVERT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/plain, */*",
+      "Authorization": `Bearer ${tokenValue}`,
+      "Origin": "https://flexu.vn",
+      "Referer": "https://flexu.vn/",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    },
+    body: JSON.stringify({ url: targetUrl }),
+    signal: AbortSignal.timeout(25000)
+  });
+
+  const raw = await response.text();
+  let json;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    throw new Error(`Flexu API trả về dữ liệu không phải JSON (HTTP ${response.status}): ${raw.slice(0, 200)}`);
+  }
+
+  if (!response.ok || json.success === false) {
+    throw new Error(json.message || json.error || `Flexu API lỗi HTTP ${response.status}`);
+  }
+
+  const results = json.data && Array.isArray(json.data.results) ? json.data.results : [];
+  const first = results[0];
+  const affiliateUrl = first && (first.affiliate_url || first.short_url || first.url || "");
+  if (!affiliateUrl) {
+    throw new Error("Flexu API không trả về affiliate_url.");
+  }
+
+  return affiliateUrl;
+}
+
+async function createViaShpTodayApi(targetUrl, username) {
+  if (!SHP_TODAY_API_KEY) {
+    throw new Error("Chưa cấu hình SHP_TODAY_API_KEY trên Vercel.");
+  }
+
+  const sub1 = sanitizeSubId(username);
+  const params = new URLSearchParams({ api: "1", url: targetUrl });
+  if (sub1) params.set("sub1", sub1);
+
+  const response = await fetch(`${SHP_TODAY_API_URL}?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      "X-API-Key": SHP_TODAY_API_KEY,
+      "Accept": "text/plain, application/json, */*"
+    },
+    signal: AbortSignal.timeout(20000)
+  });
+
+  const raw = (await response.text()).trim();
+  if (!response.ok || /^error\b/i.test(raw)) {
+    throw new Error(raw || `API shp.today HTTP ${response.status}`);
+  }
+
+  const firstLine = raw.split(/\r?\n/)[0].trim();
+  if (/^https?:\/\/\S+$/i.test(firstLine)) {
+    return firstLine;
+  }
+
+  const data = JSON.parse(raw);
+  const link = data.link || data.url || data.short_url || data.result;
+  if (!link) throw new Error("API shp.today không trả về link.");
+  return link;
+}
+
 function cleanLazadaUrl(rawUrl) {
   const u = new URL(rawUrl);
   const remove = new Set([
@@ -102,8 +189,7 @@ function lazadaSignature(apiPath, allParams, secret) {
 function findAffiliateUrl(value, depth = 0) {
   if (depth > 8 || value == null) return "";
   if (typeof value === "string") {
-    if (/^https?:\/\/\S+$/i.test(value) &&
-        /(lazada|lzd\.co|c\.lazada)/i.test(value)) return value;
+    if (/^https?:\/\/\S+$/i.test(value) && /(lazada|lzd\.co|c\.lazada)/i.test(value)) return value;
     return "";
   }
   if (Array.isArray(value)) {
@@ -132,54 +218,6 @@ function findAffiliateUrl(value, depth = 0) {
     }
   }
   return "";
-}
-
-async function createViaShpTodayApi(targetUrl, username, platform) {
-  if (!SHP_TODAY_API_KEY) {
-    throw new Error("Chưa cấu hình SHP_TODAY_API_KEY trên Vercel.");
-  }
-
-  const sub1 = sanitizeSubId(username);
-  const params = new URLSearchParams({
-    api: "1",
-    url: targetUrl
-  });
-  if (sub1) params.set("sub1", sub1);
-
-  const response = await fetch(`${SHP_TODAY_API_URL}?${params.toString()}`, {
-    method: "GET",
-    headers: {
-      "X-API-Key": SHP_TODAY_API_KEY,
-      "Accept": "text/plain, application/json, */*"
-    },
-    signal: AbortSignal.timeout(20000)
-  });
-
-  const raw = (await response.text()).trim();
-
-  if (!response.ok) {
-    throw new Error(`API shp.today HTTP ${response.status}: ${raw.slice(0, 250)}`);
-  }
-
-  if (/^error\b/i.test(raw)) {
-    throw new Error(raw);
-  }
-
-  const firstLine = raw.split(/\r?\n/)[0].trim();
-  if (/^https?:\/\/\S+$/i.test(firstLine)) {
-    return firstLine;
-  }
-
-  let data;
-  try { data = JSON.parse(raw); }
-  catch { throw new Error(`API shp.today trả về dữ liệu không hợp lệ (${platform}): ` + raw.slice(0, 250)); }
-
-  const link = data.link || data.url || data.short_url || data.result;
-  if (!link || data.ok === false || data.success === false) {
-    throw new Error(data.error || data.message || `API shp.today không tạo được link ${platform}.`);
-  }
-
-  return link;
 }
 
 async function createLazadaAffiliateLink(originalUrl, username) {
@@ -218,87 +256,24 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   });
 
   const raw = await response.text();
-  let data;
-  try { data = JSON.parse(raw); }
-  catch { throw new Error("Lazada trả về dữ liệu không phải JSON: " + raw.slice(0, 250)); }
+  const data = JSON.parse(raw);
 
-  if (!response.ok) {
-    throw new Error(`Lazada HTTP ${response.status}: ${data.message || data.msg || raw.slice(0, 250)}`);
-  }
-
-  if (data.code !== undefined && String(data.code) !== "0") {
-    throw new Error(`Lazada API ${data.code}: ${data.message || data.msg || "Không tạo được tracking link"}`);
+  if (!response.ok || (data.code !== undefined && String(data.code) !== "0")) {
+    throw new Error(data.message || data.msg || `Lazada HTTP ${response.status}`);
   }
 
   const affiliateUrl = findAffiliateUrl(data);
-  if (!affiliateUrl) {
-    throw new Error("Lazada API phản hồi nhưng chưa tìm thấy trường link affiliate. Phản hồi: " +
-      JSON.stringify(data).slice(0, 500));
-  }
-
+  if (!affiliateUrl) throw new Error("Lazada API không trả về link affiliate.");
   return affiliateUrl;
 }
 
-async function fetchShopeeMetadata(cleanUrl) {
-  let productTitle = "Sản phẩm Shopee";
-  let productPrice = "";
-  let productImg = "https://placehold.co/100x100?text=Shopee";
-
-  try {
-    const match = cleanUrl.match(/i\.(\d+)\.(\d+)/);
-    if (match) {
-      const [, shopId, itemId] = match;
-      const productResponse = await fetch(
-        `https://shopee.vn/api/v4/item/get?itemid=${itemId}&shopid=${shopId}`,
-        {
-          headers: {
-            "User-Agent": "Mozilla/5.0",
-            "Accept": "application/json",
-            "X-Requested-With": "XMLHttpRequest"
-          },
-          signal: AbortSignal.timeout(10000)
-        }
-      );
-      if (productResponse.ok) {
-        const productJson = await productResponse.json();
-        const item = productJson.data;
-        if (item) {
-          productTitle = item.name || productTitle;
-          if (item.image) productImg = `https://down-vn.img.susercontent.com/file/${item.image}`;
-          if (item.price) productPrice = Math.round(item.price / 100000).toLocaleString("vi-VN") + "đ";
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Shopee product metadata error:", err.message);
-  }
-
-  return { productTitle, productPrice, productImg };
-}
-
 async function createShopeeAffiliateLink(originalUrl, username) {
-  let finalUrl = originalUrl;
-
-  if (isShortUrl(originalUrl, "shopee")) {
-    finalUrl = await expandShortUrl(originalUrl, "shopee");
-  }
-
-  const cleanUrl = finalUrl.split("?")[0];
-  const affiliateLink =
+  const cleanUrl = originalUrl.split("?")[0];
+  return (
     `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(cleanUrl)}` +
     `&affiliate_id=${encodeURIComponent(SHOPEE_AFFILIATE_ID)}` +
-    `&sub_id=${encodeURIComponent(username)}`;
-
-  const meta = await fetchShopeeMetadata(cleanUrl);
-
-  return {
-    result: affiliateLink,
-    title: meta.productTitle,
-    price: meta.productPrice,
-    image: meta.productImg,
-    commission: "",
-    commission_pct: ""
-  };
+    `&sub_id=${encodeURIComponent(username)}`
+  );
 }
 
 export default async function handler(req, res) {
@@ -333,63 +308,49 @@ export default async function handler(req, res) {
       inputUrl = await expandShortUrl(inputUrl, platform);
     }
 
-    const defaults = {
-      shopee: { title: "Sản phẩm Shopee", price: "", image: "https://placehold.co/100x100?text=Shopee" },
-      lazada: { title: "Sản phẩm Lazada", price: "", image: "https://placehold.co/100x100?text=Lazada" },
-      tiktok: { title: "Sản phẩm TikTok Shop", price: "", image: "https://placehold.co/100x100?text=TikTok" }
-    };
+    let resultLink = "";
 
-    if (SHP_TODAY_API_KEY) {
+    if (FLEXU_BEARER_TOKEN) {
       try {
-        const apiLink = await createViaShpTodayApi(inputUrl, cleanUsername, platform);
-        let title = defaults[platform].title;
-        let price = defaults[platform].price;
-        let image = defaults[platform].image;
-
-        if (platform === "shopee") {
-          const meta = await fetchShopeeMetadata(inputUrl.split("?")[0]);
-          title = meta.productTitle;
-          price = meta.productPrice;
-          image = meta.productImg;
+        resultLink = await createViaFlexuApi(inputUrl);
+      } catch (flexuErr) {
+        console.warn("Flexu convert API failed:", flexuErr.message);
+        if (platform === "tiktok") {
+          return jsonError(res, 502, NO_COMMISSION_MSG, { no_commission: true });
         }
-
-        return res.status(200).json({
-          success: true,
-          platform,
-          result: apiLink,
-          title,
-          price,
-          image,
-          commission: "",
-          commission_pct: ""
-        });
-      } catch (apiErr) {
-        console.warn(`SHP_TODAY API failed for ${platform}, fallback if supported:`, apiErr.message);
-        if (platform === "tiktok") throw apiErr;
       }
     }
 
-    if (platform === "lazada") {
-      const result = await createLazadaAffiliateLink(inputUrl, cleanUsername);
-      return res.status(200).json({
-        success: true,
-        platform: "lazada",
-        result,
-        title: defaults.lazada.title,
-        price: defaults.lazada.price,
-        image: defaults.lazada.image,
-        commission: "",
-        commission_pct: ""
-      });
+    if (!resultLink && SHP_TODAY_API_KEY) {
+      try {
+        resultLink = await createViaShpTodayApi(inputUrl, cleanUsername);
+      } catch (shpErr) {
+        console.warn("SHP_TODAY API failed:", shpErr.message);
+        if (platform === "tiktok") {
+          return jsonError(res, 502, NO_COMMISSION_MSG, { no_commission: true });
+        }
+      }
     }
 
-    if (platform === "tiktok") {
-      throw new Error("Chưa cấu hình SHP_TODAY_API_KEY hoặc API TikTok chưa tạo được link.");
+    if (!resultLink) {
+      if (platform === "lazada") {
+        resultLink = await createLazadaAffiliateLink(inputUrl, cleanUsername);
+      } else if (platform === "shopee") {
+        resultLink = await createShopeeAffiliateLink(inputUrl, cleanUsername);
+      } else {
+        return jsonError(res, 502, NO_COMMISSION_MSG, { no_commission: true });
+      }
     }
 
-    const result = await createShopeeAffiliateLink(inputUrl, cleanUsername);
-    return res.status(200).json({ success: true, platform: "shopee", ...result });
+    if (isShpTodayLink(resultLink)) {
+      return jsonError(res, 200, NO_COMMISSION_MSG, { no_commission: true, result: resultLink });
+    }
 
+    return res.status(200).json({
+      success: true,
+      platform,
+      result: resultLink
+    });
   } catch (err) {
     console.error("SPO convert error:", err);
     return jsonError(res, 502, err.message || "Không thể chuyển đổi link.");
