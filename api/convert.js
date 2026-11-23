@@ -1,5 +1,4 @@
 import crypto from "crypto";
-
 const SHOPEE_AFFILIATE_ID = process.env.SHOPEE_AFFILIATE_ID || "17340760181";
 const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn").replace(/\/+$/, "");
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
@@ -120,12 +119,11 @@ async function createLazadaAffiliateLink(originalUrl, username) {
 
   const cleanedUrl = cleanLazadaUrl(originalUrl);
   const apiParams = {
-  userToken,
-  inputType: "url",
-  inputValue: cleanedUrl,
-  subId1: "SPO",
-  subId2: String(username).trim().slice(0, 100)
-};
+    userToken,
+    inputType: "url",
+    inputValue: cleanedUrl,
+    subId1: String(username).slice(0, 100)
+  };
 
   const sysParams = {
     app_key: appKey,
@@ -180,8 +178,8 @@ async function createShopeeAffiliateLink(originalUrl, username) {
   const affiliateLink =
     `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(cleanUrl)}` +
     `&affiliate_id=${encodeURIComponent(SHOPEE_AFFILIATE_ID)}` +
-    `&sub_id=${encodeURIComponent("SPO")}` +
-    `&sub_id2=${encodeURIComponent(String(username).trim().slice(0, 100))}`;
+    `&sub_id=${encodeURIComponent(username)}`;
+
   let productTitle = "Sản phẩm Shopee";
   let productPrice = "Đang cập nhật";
   let productImg = "https://placehold.co/100x100?text=Shopee";
