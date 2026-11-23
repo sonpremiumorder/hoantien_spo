@@ -1,4 +1,5 @@
 import crypto from "crypto";
+
 const SHOPEE_AFFILIATE_ID = process.env.SHOPEE_AFFILIATE_ID || "17340760181";
 const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn").replace(/\/+$/, "");
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
@@ -118,11 +119,14 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   }
 
   const cleanedUrl = cleanLazadaUrl(originalUrl);
+
+  // subId1 dùng để nhận diện tài khoản khách trên SPO.
+  // Tham số này được đưa vào allParams trước khi ký chữ ký API.
   const apiParams = {
     userToken,
     inputType: "url",
     inputValue: cleanedUrl,
-    subId1: String(username).slice(0, 100)
+    subId1: String(username).trim().slice(0, 100)
   };
 
   const sysParams = {
@@ -152,7 +156,6 @@ async function createLazadaAffiliateLink(originalUrl, username) {
     throw new Error(`Lazada HTTP ${response.status}: ${data.message || data.msg || raw.slice(0, 250)}`);
   }
 
-  // Affiliate API thường trả code "0" khi thành công; vẫn kiểm tra lỗi rõ ràng.
   if (data.code !== undefined && String(data.code) !== "0") {
     throw new Error(`Lazada API ${data.code}: ${data.message || data.msg || "Không tạo được tracking link"}`);
   }
@@ -173,7 +176,6 @@ async function createShopeeAffiliateLink(originalUrl, username) {
     finalUrl = await expandShortUrl(originalUrl, "shopee");
   }
 
-  // Giữ nguyên cách tạo affiliate link Shopee đang dùng.
   const cleanUrl = finalUrl.split("?")[0];
   const affiliateLink =
     `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(cleanUrl)}` +
@@ -230,7 +232,11 @@ export default async function handler(req, res) {
 
   try {
     const { username, url } = req.body || {};
-    if (!username || !url) return jsonError(res, 400, "Thiếu username hoặc url");
+    const normalizedUsername = String(username || "").trim();
+
+    if (!normalizedUsername || !url) {
+      return jsonError(res, 400, "Thiếu username hoặc url");
+    }
 
     let inputUrl;
     try { inputUrl = new URL(String(url).trim()).toString(); }
@@ -246,7 +252,6 @@ export default async function handler(req, res) {
     }
 
     if (!isAllowedPlatformHost(inputUrl, platform)) {
-      // Chỉ short domain đã định danh mới được mở rộng.
       return jsonError(res, 400, "Tên miền link không được hỗ trợ.");
     }
 
@@ -256,7 +261,7 @@ export default async function handler(req, res) {
     }
 
     if (platform === "lazada") {
-      const result = await createLazadaAffiliateLink(inputUrl, username);
+      const result = await createLazadaAffiliateLink(inputUrl, normalizedUsername);
       return res.status(200).json({
         success: true,
         platform: "lazada",
@@ -268,7 +273,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const result = await createShopeeAffiliateLink(inputUrl, String(username).trim());
+    const result = await createShopeeAffiliateLink(inputUrl, normalizedUsername);
     return res.status(200).json({ success: true, platform: "shopee", ...result });
 
   } catch (err) {
