@@ -1,8 +1,13 @@
 import crypto from "crypto";
+
 const SHOPEE_AFFILIATE_ID = process.env.SHOPEE_AFFILIATE_ID || "17340760181";
 const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn").replace(/\/+$/, "");
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
 const LAZADA_PARTNER_ID = process.env.LAZADA_PARTNER_ID || "lazop-sdk-php-affiliate-1.0";
+
+const LAZADA_APP_KEY = process.env.LAZADA_APP_KEY || "105827";
+const LAZADA_APP_SECRET = process.env.LAZADA_APP_SECRET || "r8ZMKhPxu1JZUCwTUBVMJiJnZKjhWeQF";
+const LAZADA_USER_TOKEN = process.env.LAZADA_USER_TOKEN || "e53cf9601b55425690e98af306976594";
 
 const TIKTOK_CONVERT_URL = process.env.TIKTOK_CONVERT_URL || "";
 const TIKTOK_API_KEY = process.env.TIKTOK_API_KEY || "";
@@ -175,10 +180,17 @@ function findAffiliateUrl(value, depth = 0) {
   return "";
 }
 
+function buildLazadaRestUrl(baseUrl, apiPath, query) {
+  const cleanBase = String(baseUrl || "").replace(/\/+$/, "");
+  const cleanPath = "/" + String(apiPath || "").replace(/^\/+/, "");
+  const prefix = /\/rest$/i.test(cleanBase) ? "" : "/rest";
+  return `${cleanBase}${prefix}${cleanPath}?${query.toString()}`;
+}
+
 async function createLazadaAffiliateLink(originalUrl, username) {
-  const appKey = process.env.LAZADA_APP_KEY;
-  const appSecret = process.env.LAZADA_APP_SECRET;
-  const userToken = process.env.LAZADA_USER_TOKEN;
+  const appKey = LAZADA_APP_KEY;
+  const appSecret = LAZADA_APP_SECRET;
+  const userToken = LAZADA_USER_TOKEN;
 
   if (!appKey || !appSecret || !userToken) {
     throw new Error("Chưa cấu hình LAZADA_APP_KEY, LAZADA_APP_SECRET và LAZADA_USER_TOKEN trên Vercel.");
@@ -203,7 +215,7 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   const sign = lazadaSignature(LAZADA_API_PATH, allParams, appSecret);
   const query = new URLSearchParams({ ...sysParams, sign, ...apiParams });
 
-  const endpoint = `${LAZADA_BASE_URL}/rest${LAZADA_API_PATH}?${query.toString()}`;
+  const endpoint = buildLazadaRestUrl(LAZADA_BASE_URL, LAZADA_API_PATH, query);
   const response = await fetch(endpoint, {
     method: "GET",
     headers: { "User-Agent": LAZADA_PARTNER_ID, "Accept": "application/json" },
@@ -211,7 +223,12 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   });
 
   const raw = await response.text();
-  const data = JSON.parse(raw);
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error(`Lazada trả về dữ liệu không phải JSON (HTTP ${response.status}): ${raw.slice(0, 200)}`);
+  }
 
   if (!response.ok || (data.code !== undefined && String(data.code) !== "0")) {
     throw new Error(data.message || data.msg || `Lazada HTTP ${response.status}`);
@@ -324,15 +341,7 @@ export default async function handler(req, res) {
     let resultLink = "";
 
     if (platform === "lazada") {
-      try {
-        resultLink = await createLazadaAffiliateLink(inputUrl, cleanUsername);
-      } catch (lazErr) {
-        console.warn("Lazada API failed, falling back to shp.today:", lazErr.message);
-        if (!SHP_TODAY_API_KEY) {
-          throw lazErr;
-        }
-        resultLink = await createViaShpTodayApi(inputUrl, cleanUsername);
-      }
+      resultLink = await createLazadaAffiliateLink(inputUrl, cleanUsername);
     } else {
       if (SHP_TODAY_API_KEY) {
         try {
