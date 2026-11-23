@@ -28,6 +28,9 @@ function detectPlatform(rawUrl) {
   if (/(^|\.)lazada\.(vn|sg|co\.th|com\.my|com\.ph|co\.id)$/.test(host) ||
       /(^|\.)lzd\.co$/.test(host)) return "lazada";
 
+  if (/(^|\.)tiktok\.com$/.test(host) ||
+      /^(vm|vt|m|shop)\.tiktok\.com$/.test(host)) return "tiktok";
+
   return null;
 }
 
@@ -40,8 +43,15 @@ function isAllowedPlatformHost(rawUrl, platform) {
       return /(^|\.)shopee\.(vn|sg|com\.my|co\.th|ph|co\.id)$/.test(h) ||
              /(^|\.)shp\.ee$/.test(h);
     }
-    return /(^|\.)lazada\.(vn|sg|co\.th|com\.my|com\.ph|co\.id)$/.test(h) ||
-           /(^|\.)lzd\.co$/.test(h);
+    if (platform === "lazada") {
+      return /(^|\.)lazada\.(vn|sg|co\.th|com\.my|com\.ph|co\.id)$/.test(h) ||
+             /(^|\.)lzd\.co$/.test(h);
+    }
+    if (platform === "tiktok") {
+      return /(^|\.)tiktok\.com$/.test(h) ||
+             /^(vm|vt|m|shop)\.tiktok\.com$/.test(h);
+    }
+    return false;
   } catch { return false; }
 }
 
@@ -301,7 +311,7 @@ export default async function handler(req, res) {
 
     let platform = detectPlatform(inputUrl);
     if (!platform) {
-      return jsonError(res, 400, "Link không thuộc Shopee hoặc Lazada được hỗ trợ.");
+      return jsonError(res, 400, "Link không thuộc Shopee, Lazada hoặc TikTok được hỗ trợ.");
     }
 
     if (!isAllowedPlatformHost(inputUrl, platform)) {
@@ -309,7 +319,8 @@ export default async function handler(req, res) {
     }
 
     if ((platform === "lazada" && /s\.lazada\.vn|lzd\.co/i.test(inputUrl)) ||
-        (platform === "shopee" && /shp\.ee|s\.shopee\./i.test(inputUrl))) {
+        (platform === "shopee" && /shp\.ee|s\.shopee\./i.test(inputUrl)) ||
+        (platform === "tiktok" && /(?:^|\.)(?:vm|vt)\.tiktok\.com\//i.test(inputUrl))) {
       inputUrl = await expandShortUrl(inputUrl, platform);
     }
 
@@ -329,6 +340,19 @@ export default async function handler(req, res) {
         price: "Đang cập nhật",
         image: "https://placehold.co/100x100?text=Lazada",
         commission: "Theo báo cáo Lazada"
+      });
+    }
+
+    if (platform === "tiktok") {
+      const result = await createViaShpTodayApi(inputUrl, String(username).trim());
+      return res.status(200).json({
+        success: true,
+        platform: "tiktok",
+        result,
+        title: "Sản phẩm TikTok",
+        price: "Đang cập nhật",
+        image: "https://placehold.co/100x100?text=TikTok",
+        commission: "Theo báo cáo TikTok"
       });
     }
 
