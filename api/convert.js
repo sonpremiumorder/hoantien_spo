@@ -130,6 +130,48 @@ function findAffiliateUrl(value, depth = 0) {
   return "";
 }
 
+async function createViaShpTodayApi(targetUrl, username, platform) {
+  if (!SHP_TODAY_API_KEY) {
+    throw new Error("Chưa cấu hình SHP_TODAY_API_KEY trên Vercel.");
+  }
+
+  const params = new URLSearchParams({
+    api: "1",
+    sub1: String(username).slice(0, 100),
+    url: targetUrl
+  });
+
+  const response = await fetch(`${SHP_TODAY_API_URL}?${params.toString()}`, {
+    method: "GET",
+    headers: {
+      "X-API-Key": SHP_TODAY_API_KEY,
+      "Accept": "text/plain, application/json, */*"
+    },
+    signal: AbortSignal.timeout(20000)
+  });
+
+  const raw = (await response.text()).trim();
+
+  if (!response.ok) {
+    throw new Error(`API shp.today HTTP ${response.status}: ${raw.slice(0, 250)}`);
+  }
+
+  if (/^https?:\/\/\S+$/i.test(raw)) {
+    return raw;
+  }
+
+  let data;
+  try { data = JSON.parse(raw); }
+  catch { throw new Error(`API shp.today trả về dữ liệu không hợp lệ (${platform}): ` + raw.slice(0, 250)); }
+
+  const link = data.link || data.url || data.short_url || data.result;
+  if (!link || data.ok === false || data.success === false) {
+    throw new Error(data.error || data.message || `API shp.today không tạo được link ${platform}.`);
+  }
+
+  return link;
+}
+
 async function createLazadaAffiliateLink(originalUrl, username) {
   const appKey = process.env.LAZADA_APP_KEY;
   const appSecret = process.env.LAZADA_APP_SECRET;
@@ -187,74 +229,7 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   return affiliateUrl;
 }
 
-async function createTikTokAffiliateLink(originalUrl, username) {
-  if (!SHP_TODAY_API_KEY) {
-    throw new Error("Chưa cấu hình SHP_TODAY_API_KEY trên Vercel.");
-  }
-
-  const params = new URLSearchParams({
-    api: "1",
-    sub1: String(username).slice(0, 100),
-    url: originalUrl
-  });
-
-  const response = await fetch(`${SHP_TODAY_API_URL}?${params.toString()}`, {
-    method: "GET",
-    headers: {
-      "X-API-Key": SHP_TODAY_API_KEY,
-      "Accept": "text/plain, application/json, */*"
-    },
-    signal: AbortSignal.timeout(20000)
-  });
-
-  const raw = (await response.text()).trim();
-
-  if (!response.ok) {
-    throw new Error(`API TikTok HTTP ${response.status}: ${raw.slice(0, 250)}`);
-  }
-
-  // API trả về 1 dòng là link rút gọn, hoặc JSON nếu lỗi/định dạng mở rộng
-  if (/^https?:\/\/\S+$/i.test(raw)) {
-    return {
-      result: raw,
-      title: "Sản phẩm TikTok Shop",
-      price: "Đang cập nhật",
-      image: "https://placehold.co/100x100?text=TikTok",
-      commission: "Theo báo cáo TikTok Shop"
-    };
-  }
-
-  let data;
-  try { data = JSON.parse(raw); }
-  catch { throw new Error("API TikTok trả về lỗi: " + raw.slice(0, 250)); }
-
-  const link = data.link || data.url || data.short_url || data.result;
-  if (!link) {
-    throw new Error(data.error || data.message || "Không tạo được link affiliate TikTok.");
-  }
-
-  return {
-    result: link,
-    title: data.title || "Sản phẩm TikTok Shop",
-    price: data.price || "Đang cập nhật",
-    image: data.image || "https://placehold.co/100x100?text=TikTok",
-    commission: data.commission || "Theo báo cáo TikTok Shop"
-  };
-}
-
-async function createShopeeAffiliateLink(originalUrl, username) {
-  let finalUrl = originalUrl;
-
-  if (isShortUrl(originalUrl, "shopee")) {
-    finalUrl = await expandShortUrl(originalUrl, "shopee");
-  }
-
-  const cleanUrl = finalUrl.split("?")[0];
-  const affiliateLink =
-    `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(cleanUrl)}` +
-    `&affiliate_id=${encodeURIComponent(SHOPEE_AFFILIATE_ID)}` +
-    `&sub_id=${encodeURIComponent(username)}`;
-
+async function fetchShopeeMetadata(cleanUrl) {
   let productTitle = "Sản phẩm Shopee";
   let productPrice = "Đang cập nhật";
   let productImg = "https://placehold.co/100x100?text=Shopee";
@@ -289,12 +264,30 @@ async function createShopeeAffiliateLink(originalUrl, username) {
     console.error("Shopee product metadata error:", err.message);
   }
 
+  return { productTitle, productPrice, productImg, productCommission };
+}
+
+async function createShopeeAffiliateLink(originalUrl, username) {
+  let finalUrl = originalUrl;
+
+  if (isShortUrl(originalUrl, "shopee")) {
+    finalUrl = await expandShortUrl(originalUrl, "shopee");
+  }
+
+  const cleanUrl = finalUrl.split("?")[0];
+  const affiliateLink =
+    `https://s.shopee.sg/an_redir?origin_link=${encodeURIComponent(cleanUrl)}` +
+    `&affiliate_id=${encodeURIComponent(SHOPEE_AFFILIATE_ID)}` +
+    `&sub_id=${encodeURIComponent(username)}`;
+
+  const meta = await fetchShopeeMetadata(cleanUrl);
+
   return {
     result: affiliateLink,
-    title: productTitle,
-    price: productPrice,
-    image: productImg,
-    commission: productCommission
+    title: meta.productTitle,
+    price: meta.productPrice,
+    image: meta.productImg,
+    commission: meta.productCommission
   };
 }
 
@@ -306,6 +299,8 @@ export default async function handler(req, res) {
   try {
     const { username, url } = req.body || {};
     if (!username || !url) return jsonError(res, 400, "Thiếu username hoặc url");
+
+    const cleanUsername = String(username).trim();
 
     let inputUrl;
     try { inputUrl = new URL(String(url).trim()).toString(); }
@@ -328,8 +323,56 @@ export default async function handler(req, res) {
       inputUrl = await expandShortUrl(inputUrl, platform);
     }
 
+    // 1. Thử dùng API chung qua SHP_TODAY_API_KEY cho cả Shopee, Lazada, TikTok
+    if (SHP_TODAY_API_KEY) {
+      try {
+        const apiLink = await createViaShpTodayApi(inputUrl, cleanUsername, platform);
+
+        if (platform === "shopee") {
+          const meta = await fetchShopeeMetadata(inputUrl.split("?")[0]);
+          return res.status(200).json({
+            success: true,
+            platform: "shopee",
+            result: apiLink,
+            title: meta.productTitle,
+            price: meta.productPrice,
+            image: meta.productImg,
+            commission: meta.productCommission
+          });
+        }
+
+        if (platform === "lazada") {
+          return res.status(200).json({
+            success: true,
+            platform: "lazada",
+            result: apiLink,
+            title: "Sản phẩm Lazada",
+            price: "Đang cập nhật",
+            image: "https://placehold.co/100x100?text=Lazada",
+            commission: "Theo báo cáo Lazada"
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          platform: "tiktok",
+          result: apiLink,
+          title: "Sản phẩm TikTok Shop",
+          price: "Đang cập nhật",
+          image: "https://placehold.co/100x100?text=TikTok",
+          commission: "Theo báo cáo TikTok Shop"
+        });
+      } catch (apiErr) {
+        console.warn(`SHP_TODAY API failed for ${platform}, fallback if supported:`, apiErr.message);
+        if (platform === "tiktok") {
+          throw apiErr;
+        }
+      }
+    }
+
+    // 2. Fallback sang API rời cũ nếu không dùng/lỗi SHP_TODAY API
     if (platform === "lazada") {
-      const result = await createLazadaAffiliateLink(inputUrl, username);
+      const result = await createLazadaAffiliateLink(inputUrl, cleanUsername);
       return res.status(200).json({
         success: true,
         platform: "lazada",
@@ -342,11 +385,10 @@ export default async function handler(req, res) {
     }
 
     if (platform === "tiktok") {
-      const tiktokData = await createTikTokAffiliateLink(inputUrl, String(username).trim());
-      return res.status(200).json({ success: true, platform: "tiktok", ...tiktokData });
+      throw new Error("Chưa cấu hình SHP_TODAY_API_KEY hoặc API TikTok chưa tạo được link.");
     }
 
-    const result = await createShopeeAffiliateLink(inputUrl, String(username).trim());
+    const result = await createShopeeAffiliateLink(inputUrl, cleanUsername);
     return res.status(200).json({ success: true, platform: "shopee", ...result });
 
   } catch (err) {
