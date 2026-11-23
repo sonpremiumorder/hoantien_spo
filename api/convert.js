@@ -5,8 +5,7 @@ const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn")
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
 const LAZADA_PARTNER_ID = process.env.LAZADA_PARTNER_ID || "lazop-sdk-php-affiliate-1.0";
 
-const RIOHUB_BASE_URL = (process.env.RIOHUB_BASE_URL || "https://riohub.riokupon.com").replace(/\/+$/, "");
-const RIOHUB_API_PATH = process.env.RIOHUB_API_PATH || "/api/tiktok-affiliate/convert";
+const RIOHUB_ENDPOINT = process.env.RIOHUB_ENDPOINT || "https://shp.today/process/riohub-test.php";
 const RIOHUB_API_KEY = process.env.RIOHUB_API_KEY || "";
 const TIKTOK_CREATOR_USERNAME = process.env.TIKTOK_CREATOR_USERNAME || "";
 
@@ -97,35 +96,34 @@ function lazadaSignature(apiPath, allParams, secret) {
     .toUpperCase();
 }
 
-function findAffiliateUrl(value, allowedRegex = /(lazada|lzd\.co|c\.lazada|tiktok\.com|vt\.tiktok\.com|vm\.tiktok\.com)/i, depth = 0) {
+function findAffiliateUrl(value, depth = 0) {
   if (depth > 8 || value == null) return "";
   if (typeof value === "string") {
-    if (/^https?:\/\/\S+$/i.test(value) && allowedRegex.test(value)) return value;
+    if (/^https?:\/\/\S+$/i.test(value) &&
+        /(lazada|lzd\.co|c\.lazada)/i.test(value)) return value;
     return "";
   }
   if (Array.isArray(value)) {
     for (const item of value) {
-      const found = findAffiliateUrl(item, allowedRegex, depth + 1);
+      const found = findAffiliateUrl(item, depth + 1);
       if (found) return found;
     }
     return "";
   }
   if (typeof value === "object") {
     const preferred = [
-      "trackingUrl", "tracking_url", "affiliateUrl", "affiliate_url",
-      "shortLink", "shortUrl", "short_link", "short_url",
-      "promotionUrl", "promotion_url", "clickUrl", "click_url",
-      "url", "link"
+      "trackingUrl", "tracking_url", "shortLink", "shortUrl",
+      "promotionUrl", "clickUrl", "affiliateUrl", "url", "link"
     ];
     for (const key of preferred) {
       if (value[key]) {
-        const found = findAffiliateUrl(value[key], allowedRegex, depth + 1);
+        const found = findAffiliateUrl(value[key], depth + 1);
         if (found) return found;
       }
     }
     for (const [key, item] of Object.entries(value)) {
       if (!preferred.includes(key)) {
-        const found = findAffiliateUrl(item, allowedRegex, depth + 1);
+        const found = findAffiliateUrl(item, depth + 1);
         if (found) return found;
       }
     }
@@ -181,7 +179,7 @@ async function createLazadaAffiliateLink(originalUrl, username) {
     throw new Error(`Lazada API ${data.code}: ${data.message || data.msg || "Không tạo được tracking link"}`);
   }
 
-  const affiliateUrl = findAffiliateUrl(data, /(lazada|lzd\.co|c\.lazada)/i);
+  const affiliateUrl = findAffiliateUrl(data);
   if (!affiliateUrl) {
     throw new Error("Lazada API phản hồi nhưng chưa tìm thấy trường link affiliate. Phản hồi: " +
       JSON.stringify(data).slice(0, 500));
@@ -190,28 +188,25 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   return affiliateUrl;
 }
 
-async function createTikTokAffiliateLink(originalUrl, username) {
-  const apiKey = RIOHUB_API_KEY;
-  const creatorUsername = TIKTOK_CREATOR_USERNAME;
-
-  if (!apiKey || !creatorUsername) {
+async function createTikTokAffiliateLink(originalUrl) {
+  if (!RIOHUB_API_KEY || !TIKTOK_CREATOR_USERNAME) {
     throw new Error("Chưa cấu hình RIOHUB_API_KEY và TIKTOK_CREATOR_USERNAME trên Vercel.");
   }
 
-  const endpoint = `${RIOHUB_BASE_URL}${RIOHUB_API_PATH}`;
-  const response = await fetch(endpoint, {
+  const formBody = new URLSearchParams({
+    api_key: RIOHUB_API_KEY,
+    creator_username: TIKTOK_CREATOR_USERNAME,
+    product_url: originalUrl
+  });
+
+  const response = await fetch(RIOHUB_ENDPOINT, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-      "X-API-Key": apiKey
+      "Content-Type": "application/x-www-form-urlencoded",
+      "Accept": "application/json, text/plain, */*",
+      "User-Agent": "Mozilla/5.0 (compatible; SPO-Link-Converter/1.0)"
     },
-    body: JSON.stringify({
-      url: originalUrl,
-      creator_username: creatorUsername,
-      sub_id: String(username).slice(0, 100)
-    }),
+    body: formBody.toString(),
     signal: AbortSignal.timeout(20000)
   });
 
@@ -221,26 +216,19 @@ async function createTikTokAffiliateLink(originalUrl, username) {
   catch { throw new Error("RioHub trả về dữ liệu không phải JSON: " + raw.slice(0, 250)); }
 
   if (!response.ok) {
-    throw new Error(`RioHub HTTP ${response.status}: ${data.error || data.message || data.msg || raw.slice(0, 250)}`);
+    throw new Error(`RioHub HTTP ${response.status}: ${data.error || data.message || raw.slice(0, 250)}`);
   }
 
-  if (data.success === false) {
-    throw new Error(`RioHub lỗi: ${data.error || data.message || "Không tạo được link TikTok"}`);
+  if (!data.ok || !data.link) {
+    throw new Error(data.error || "RioHub không tạo được link affiliate TikTok.");
   }
-
-  const affiliateUrl = findAffiliateUrl(data, /tiktok\.com/i);
-  if (!affiliateUrl) {
-    throw new Error("RioHub phản hồi nhưng chưa tìm thấy link affiliate: " + JSON.stringify(data).slice(0, 400));
-  }
-
-  const info = data.data && typeof data.data === "object" ? data.data : data;
 
   return {
-    result: affiliateUrl,
-    title: info.title || info.product_title || info.name || "Sản phẩm TikTok Shop",
-    price: info.price || info.formatted_price || "Đang cập nhật",
-    image: info.image || info.cover || info.thumbnail || "https://placehold.co/100x100?text=TikTok",
-    commission: info.commission || info.commission_rate || "Theo báo cáo TikTok Shop"
+    result: data.link,
+    title: "Sản phẩm TikTok Shop",
+    price: "Đang cập nhật",
+    image: "https://placehold.co/100x100?text=TikTok",
+    commission: "Theo báo cáo TikTok Shop"
   };
 }
 
@@ -344,7 +332,7 @@ export default async function handler(req, res) {
     }
 
     if (platform === "tiktok") {
-      const tiktokData = await createTikTokAffiliateLink(inputUrl, String(username).trim());
+      const tiktokData = await createTikTokAffiliateLink(inputUrl);
       return res.status(200).json({ success: true, platform: "tiktok", ...tiktokData });
     }
 
