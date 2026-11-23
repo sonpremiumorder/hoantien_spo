@@ -1,5 +1,4 @@
 import crypto from "crypto";
-
 const SHOPEE_AFFILIATE_ID = process.env.SHOPEE_AFFILIATE_ID || "17340760181";
 const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn").replace(/\/+$/, "");
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
@@ -146,37 +145,30 @@ function lazadaSignature(apiPath, allParams, secret) {
     .toUpperCase();
 }
 
-function findAffiliateUrl(value, depth = 0) {
-  if (depth > 8 || value == null) return "";
-  if (typeof value === "string") {
-    if (/^https?:\/\/\S+$/i.test(value) && /(lazada|lzd\.co|c\.lazada)/i.test(value)) return value;
-    return "";
-  }
-  if (Array.isArray(value)) {
-    for (const item of value) {
-      const found = findAffiliateUrl(item, depth + 1);
-      if (found) return found;
-    }
-    return "";
-  }
-  if (typeof value === "object") {
-    const preferred = [
-      "trackingUrl", "tracking_url", "shortLink", "shortUrl",
-      "promotionUrl", "clickUrl", "affiliateUrl", "url", "link"
-    ];
-    for (const key of preferred) {
-      if (value[key]) {
-        const found = findAffiliateUrl(value[key], depth + 1);
-        if (found) return found;
-      }
-    }
-    for (const [key, item] of Object.entries(value)) {
-      if (!preferred.includes(key)) {
-        const found = findAffiliateUrl(item, depth + 1);
-        if (found) return found;
-      }
+function findLazadaAffiliateUrl(obj, inputUrls = []) {
+  if (!obj || typeof obj !== "object") return "";
+  
+  const preferredKeys = [
+    "trackingUrl", "tracking_url", "shortLink", "shortUrl",
+    "promotionUrl", "clickUrl", "affiliateUrl", "aff_url"
+  ];
+
+  for (const key of preferredKeys) {
+    if (obj[key] && typeof obj[key] === "string" && /^https?:\/\/\S+$/i.test(obj[key])) {
+      const val = obj[key].trim();
+      if (!inputUrls.includes(val)) return val;
     }
   }
+
+  if (obj.data && typeof obj.data === "object") {
+    const res = findLazadaAffiliateUrl(obj.data, inputUrls);
+    if (res) return res;
+  }
+  if (obj.result && typeof obj.result === "object") {
+    const res = findLazadaAffiliateUrl(obj.result, inputUrls);
+    if (res) return res;
+  }
+
   return "";
 }
 
@@ -234,8 +226,10 @@ async function createLazadaAffiliateLink(originalUrl, username) {
     throw new Error(data.message || data.msg || `Lazada HTTP ${response.status}`);
   }
 
-  const affiliateUrl = findAffiliateUrl(data);
-  if (!affiliateUrl) throw new Error("Lazada API không trả về link affiliate.");
+  const affiliateUrl = findLazadaAffiliateUrl(data, [originalUrl, cleanedUrl]);
+  if (!affiliateUrl) {
+    throw new Error("Lazada API không trả về link affiliate tracking.");
+  }
   return affiliateUrl;
 }
 
@@ -341,7 +335,16 @@ export default async function handler(req, res) {
     let resultLink = "";
 
     if (platform === "lazada") {
-      resultLink = await createLazadaAffiliateLink(inputUrl, cleanUsername);
+      try {
+        resultLink = await createLazadaAffiliateLink(inputUrl, cleanUsername);
+      } catch (lazErr) {
+        console.warn("Lazada API direct failed, falling back to shp.today:", lazErr.message);
+        if (SHP_TODAY_API_KEY) {
+          resultLink = await createViaShpTodayApi(inputUrl, cleanUsername);
+        } else {
+          throw lazErr;
+        }
+      }
     } else {
       if (SHP_TODAY_API_KEY) {
         try {
