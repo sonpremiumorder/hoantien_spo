@@ -342,10 +342,6 @@
   <script>
     let realAffiliateLink = "";
 
-    const NO_COMMISSION_MSG =
-      "⚠️ Sản phẩm này không nằm trong chương trình hoa hồng nên bot không tạo link hoàn tiền được ạ ❤️\n" +
-      "Bạn vẫn mua bình thường được nhưng sẽ KHÔNG có tiền hoàn. Muốn được hoàn tiền thì chọn sản phẩm khác rồi gửi link lại giúp mình nha.";
-
     function setNotice(message, type = "warn") {
       const el = document.getElementById("inlineNotice");
       if (!message) {
@@ -364,10 +360,6 @@
       if (/shopee\.(vn|sg|com\.my|co\.th|ph|co\.id)|shp\.ee|vn\.shp\.ee/.test(value)) return "Shopee";
       if (/(^|[/:.])((www|m|shop|vm|vt)\.)?tiktok\.com(\/|$)/i.test(value)) return "TikTok";
       return "";
-    }
-
-    function isNoCommissionLink(url) {
-      return /(^|[/:.])shp\.today(\/|$)/i.test(String(url || "").trim());
     }
 
     function extractUrlFromPayload(payload) {
@@ -396,10 +388,7 @@
 
     function handleConvertedLink(link, platformLabel) {
       const cleanLink = String(link || "").trim();
-      if (!cleanLink || isNoCommissionLink(cleanLink)) {
-        setNotice(NO_COMMISSION_MSG, "warn");
-        return;
-      }
+      if (!cleanLink) return;
 
       setNotice("", "");
       realAffiliateLink = cleanLink;
@@ -466,10 +455,9 @@
             }
 
             const convertedUrl = extractUrlFromPayload(res);
-            const isOk = typeof res.ok === "boolean" ? res.ok : Boolean(convertedUrl);
-            if (!isOk || !convertedUrl) {
-              const errMsg = res.error || res.message || NO_COMMISSION_MSG;
-              setNotice(errMsg, String(errMsg).startsWith("⚠️") ? "warn" : "error");
+            if (!convertedUrl) {
+              const errMsg = res.error || res.message || "❌ Không lấy được link trả về.";
+              setNotice(errMsg, "error");
               return;
             }
 
@@ -500,10 +488,9 @@
         btn.disabled = false;
 
         const convertedUrl = extractUrlFromPayload(data);
-        const isOk = res.ok && (typeof data.success === "boolean" ? data.success : Boolean(convertedUrl));
-        if (!isOk || !convertedUrl) {
-          const errMsg = data.error || data.message || NO_COMMISSION_MSG;
-          setNotice(errMsg, String(errMsg).startsWith("⚠️") ? "warn" : "error");
+        if (!convertedUrl) {
+          const errMsg = data.error || data.message || "❌ Không lấy được link trả về.";
+          setNotice(errMsg, "error");
           return;
         }
 
@@ -521,10 +508,7 @@
     }
 
     function buyNow() {
-      if (!realAffiliateLink) {
-        setNotice("⚠️ Vui lòng thực hiện chuyển đổi link trước.", "warn");
-        return;
-      }
+      if (!realAffiliateLink) return;
       window.open(realAffiliateLink, "_blank", "noopener");
     }
   </script>
