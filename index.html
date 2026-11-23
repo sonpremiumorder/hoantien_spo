@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SƠN PREMIUM ORDER - HOÀN TIỀN</title>
-  
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -18,8 +18,6 @@
       --shopee-light-orange: #fff5f2;
       --shopee-text: #222222;
       --shopee-gray: #757575;
-      --shopee-border: #ebdcd8;
-      --bg-input: #f5f5f5;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -157,76 +155,42 @@
       background-color: var(--shopee-orange-hover);
     }
 
-    .result-section {
-      margin-top: 20px;
-      padding-top: 20px;
-      border-top: 1px dashed #e8e8e8;
+    .inline-notice {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-size: 0.84rem;
+      line-height: 1.55;
+      white-space: pre-line;
       display: none;
     }
 
-    .product-box {
-      display: flex;
-      gap: 12px;
-      border: 1px solid #f0f0f0;
-      border-radius: 16px;
-      padding: 12px;
-      margin-bottom: 16px;
-      background: #fff;
+    .inline-notice.warn {
+      background-color: #fff7e6;
+      border: 1px solid #ffd591;
+      color: #873800;
+      display: block;
     }
 
-    .product-img {
-      width: 80px;
-      height: 80px;
-      object-fit: cover;
-      border-radius: 12px;
-      border: 1px solid #f5f5f5;
-      flex-shrink: 0;
+    .inline-notice.error {
+      background-color: #fff1f0;
+      border: 1px solid #ffa39e;
+      color: #a8071a;
+      display: block;
     }
 
-    .product-info {
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      flex: 1;
-      min-width: 0;
+    .inline-notice.success {
+      background-color: #f6ffed;
+      border: 1px solid #b7eb8f;
+      color: #135200;
+      display: block;
     }
 
-    .product-title {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--shopee-text);
-      line-height: 1.4;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    .product-meta {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 6px;
-      flex-wrap: wrap;
-    }
-
-    .product-price {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--shopee-orange);
-    }
-
-    .product-commission {
-      background-color: #e6fffb;
-      border: 1px solid #b5f5ec;
-      color: #08979c;
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 20px;
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
+    .result-section {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px dashed #e8e8e8;
+      display: none;
     }
 
     .result-box {
@@ -331,8 +295,6 @@
       <span>Đang có <b style="font-weight: 700;">24</b> người đang mua sắm hoàn tiền — Đừng bỏ lỡ!</span>
     </div>
 
-    <input type="hidden" id="affiliateIdNumber" value="17340760181">
-
     <div class="input-group">
       <label class="input-label" for="username">Tên đăng nhập hệ thống</label>
       <div class="input-box-wrapper">
@@ -343,32 +305,21 @@
 
     <div class="input-group">
       <label class="input-label" for="inputLink">Liên kết Shopee / Lazada / TikTok</label>
-      <div class="input-wrapper">
-        <div class="input-box-wrapper">
-          <i class="fa-solid fa-link"></i>
-          <input type="text" id="inputLink" class="input-control" placeholder="Dán link Shopee, Lazada hoặc TikTok..." oninput="checkInputs()">
-        </div>
+      <div class="input-box-wrapper">
+        <i class="fa-solid fa-link"></i>
+        <input type="text" id="inputLink" class="input-control" placeholder="Dán link Shopee, Lazada hoặc TikTok..." oninput="checkInputs()">
       </div>
     </div>
 
     <button class="btn-convert" id="generateButton" onclick="generateLink()">
       <i class="fa-solid fa-arrows-rotate"></i> CHUYỂN ĐỔI LINK <i class="fa-solid fa-arrow-right" style="font-size: 11px;"></i>
-    </button> 
+    </button>
+
+    <div id="inlineNotice" class="inline-notice"></div>
 
     <div class="result-section" id="resultArea">
-      <div class="product-box">
-        <img id="productImg" class="product-img" src="https://placehold.co/100x100?text=SPO" alt="Sản phẩm">
-        <div class="product-info">
-          <div id="productTitle" class="product-title">Sản phẩm</div>
-          <div class="product-meta">
-            <span id="productPrice" class="product-price" style="display: none;"></span>
-            <span id="productCommissionBadge" class="product-commission" style="display: none;"></span>
-          </div>
-        </div>
-      </div>
-
-      <label class="input-label">Thông tin sản phẩm & link hoàn tiền:</label>
-      <textarea id="resultOutput" class="result-box" rows="4" readonly></textarea>
+      <label class="input-label">Link hoàn tiền:</label>
+      <textarea id="resultOutput" class="result-box" rows="2" readonly></textarea>
 
       <div class="action-group">
         <button class="btn-copy" onclick="copyResultText()">
@@ -391,6 +342,21 @@
   <script>
     let realAffiliateLink = "";
 
+    const NO_COMMISSION_MSG =
+      "⚠️ Sản phẩm này không nằm trong chương trình hoa hồng nên bot không tạo link hoàn tiền được ạ ❤️\n" +
+      "Bạn vẫn mua bình thường được nhưng sẽ KHÔNG có tiền hoàn. Muốn được hoàn tiền thì chọn sản phẩm khác rồi gửi link lại giúp mình nha.";
+
+    function setNotice(message, type = "warn") {
+      const el = document.getElementById("inlineNotice");
+      if (!message) {
+        el.className = "inline-notice";
+        el.textContent = "";
+        return;
+      }
+      el.className = "inline-notice " + type;
+      el.textContent = message;
+    }
+
     function detectPlatform(url) {
       const value = String(url || "").toLowerCase();
       if (/(^|[/:.])((www|m)\.)?lazada\.(vn|sg|co\.th|com\.my|com\.ph|co\.id)(\/|$)/i.test(value) ||
@@ -400,118 +366,124 @@
       return "";
     }
 
-    function checkInputs() {
-      const username = document.getElementById('username').value.trim();
-      const inputLink = document.getElementById('inputLink').value.trim();
-      const btn = document.getElementById('generateButton');
-      btn.classList.toggle('ready', !!(username && inputLink));
+    function isNoCommissionLink(url) {
+      return /(^|[/:.])shp\.today(\/|$)/i.test(String(url || "").trim());
     }
 
-    function showConvertedResult(payload, platformLabel) {
-      const affiliateUrl = typeof payload === "string" ? payload : payload.result;
-      const product = (typeof payload === "object" && payload.title) ? payload.title : ("Sản phẩm " + platformLabel);
-      const price = (typeof payload === "object" && payload.price) ? payload.price : "";
-      const image = (typeof payload === "object" && payload.image) ? payload.image : "https://placehold.co/100x100?text=" + platformLabel;
-      const commission = (typeof payload === "object" && payload.commission) ? payload.commission : "";
-      const commissionPct = (typeof payload === "object" && payload.commission_pct) ? payload.commission_pct : "";
-
-      realAffiliateLink = affiliateUrl;
-
-      document.getElementById('productImg').src = image;
-      document.getElementById('productTitle').textContent = product;
-
-      const priceEl = document.getElementById('productPrice');
-      priceEl.textContent = price || "";
-      priceEl.style.display = price ? "inline" : "none";
-
-      const badge = document.getElementById('productCommissionBadge');
-      const pctText = commissionPct ? `(${commissionPct})` : "";
-      const cashbackText = `${pctText} ${commission}`.trim();
-
-      if (cashbackText) {
-        badge.textContent = "💸 Hoàn: " + cashbackText;
-        badge.style.display = "inline-flex";
-      } else {
-        badge.style.display = "none";
-      }
-
-      const lines = [
-        `1. 🛍️ ${product}`,
-        `🔗 ${affiliateUrl}`
+    function extractUrlFromPayload(payload) {
+      if (!payload || typeof payload !== "object") return "";
+      const candidates = [
+        payload.result,
+        payload.url,
+        payload.link,
+        payload.data && payload.data.result,
+        payload.data && payload.data.url,
+        payload.data && payload.data.link
       ];
-      if (cashbackText) {
-        lines.push(`💸 Hoàn ước tính: ${cashbackText}`);
+      for (let i = 0; i < candidates.length; i++) {
+        const val = String(candidates[i] || "").trim();
+        if (/^https?:\/\//i.test(val)) return val;
+      }
+      return "";
+    }
+
+    function checkInputs() {
+      const username = document.getElementById("username").value.trim();
+      const inputLink = document.getElementById("inputLink").value.trim();
+      const btn = document.getElementById("generateButton");
+      btn.classList.toggle("ready", !!(username && inputLink));
+    }
+
+    function handleConvertedLink(link, platformLabel) {
+      const cleanLink = String(link || "").trim();
+      if (!cleanLink || isNoCommissionLink(cleanLink)) {
+        setNotice(NO_COMMISSION_MSG, "warn");
+        return;
       }
 
-      document.getElementById('resultOutput').value = lines.join("\n");
-      document.querySelector('.btn-buy').innerHTML =
+      setNotice("", "");
+      realAffiliateLink = cleanLink;
+      document.getElementById("resultOutput").value = realAffiliateLink;
+      document.querySelector(".btn-buy").innerHTML =
         '<i class="fa-solid fa-cart-shopping"></i> MUA NGAY TRÊN ' + platformLabel.toUpperCase();
-      document.getElementById('resultArea').style.display = 'block';
+      document.getElementById("resultArea").style.display = "block";
     }
 
     function copyResultText() {
-      const text = document.getElementById('resultOutput').value;
+      const text = document.getElementById("resultOutput").value;
       if (!text) return;
       navigator.clipboard.writeText(text).then(() => {
-        alert("✅ Đã sao chép!");
+        setNotice("✅ Đã sao chép link vào bộ nhớ tạm!", "success");
       });
     }
 
     async function generateLink() {
-      const input = document.getElementById('inputLink').value.trim();
-      const username = document.getElementById('username').value.trim();
-      const btn = document.getElementById('generateButton');
-      const resultArea = document.getElementById('resultArea');
+      const input = document.getElementById("inputLink").value.trim();
+      const username = document.getElementById("username").value.trim();
+      const btn = document.getElementById("generateButton");
+      const resultArea = document.getElementById("resultArea");
+
+      setNotice("", "");
+      resultArea.style.display = "none";
+      realAffiliateLink = "";
 
       if (!input || !username) {
-        alert('Vui lòng điền tên đăng nhập và dán link Shopee, Lazada hoặc TikTok!');
+        setNotice("⚠️ Vui lòng điền tên đăng nhập và dán link Shopee, Lazada hoặc TikTok!", "warn");
         return;
       }
 
       const platform = detectPlatform(input);
       if (!platform) {
-        alert('Không nhận diện được link. Vui lòng kiểm tra đây có phải link Shopee, Lazada hoặc TikTok không.');
+        setNotice("⚠️ Không nhận diện được link. Vui lòng kiểm tra đây có phải link Shopee, Lazada hoặc TikTok không.", "warn");
         return;
       }
 
       btn.disabled = true;
       const originalText = btn.innerHTML;
       btn.innerHTML = '<span class="loader"></span> ĐANG XỬ LÝ...';
-      resultArea.style.display = 'none';
-      realAffiliateLink = "";
 
-      if (typeof google !== 'undefined' && google.script && google.script.run) {
+      if (typeof google !== "undefined" && google.script && google.script.run) {
         google.script.run
           .withSuccessHandler((res) => {
             btn.innerHTML = originalText;
             btn.disabled = false;
 
             if (!res) {
-              alert("❌ Phản hồi máy chủ rỗng.");
+              setNotice("❌ Phản hồi máy chủ rỗng.", "error");
               return;
             }
             if (typeof res === "string") {
-              if (res.startsWith("❌") || res.startsWith("⚠️")) {
-                alert(res);
+              if (res.startsWith("⚠️")) {
+                setNotice(res, "warn");
                 return;
               }
-              showConvertedResult(res, platform);
+              if (res.startsWith("❌")) {
+                setNotice(res, "error");
+                return;
+              }
+              handleConvertedLink(res, platform);
               return;
             }
-            if (!res.ok || !res.result) {
-              alert(res.error || "❌ Không thể chuyển đổi link.");
+
+            const convertedUrl = extractUrlFromPayload(res);
+            const isOk = typeof res.ok === "boolean" ? res.ok : Boolean(convertedUrl);
+            if (!isOk || !convertedUrl) {
+              const errMsg = res.error || res.message || NO_COMMISSION_MSG;
+              setNotice(errMsg, String(errMsg).startsWith("⚠️") ? "warn" : "error");
               return;
             }
-            const label = res.platform === "tiktok" ? "TikTok"
-              : res.platform === "lazada" ? "Lazada"
-              : res.platform === "shopee" ? "Shopee"
+
+            const rawPlatform = String(res.platform || "").toLowerCase();
+            const label = rawPlatform === "tiktok" ? "TikTok"
+              : rawPlatform === "lazada" ? "Lazada"
+              : rawPlatform === "shopee" ? "Shopee"
               : platform;
-            showConvertedResult(res, label);
+            handleConvertedLink(convertedUrl, label);
           })
           .withFailureHandler((err) => {
             btn.innerHTML = originalText;
             btn.disabled = false;
-            alert("❌ Lỗi kết nối hệ thống Apps Script: " + (err && err.message ? err.message : ""));
+            setNotice("❌ Lỗi kết nối máy chủ Apps Script: " + (err && err.message ? err.message : ""), "error");
           })
           .CONVERT_LINK_DETAIL(username, input);
         return;
@@ -527,26 +499,30 @@
         btn.innerHTML = originalText;
         btn.disabled = false;
 
-        if (!res.ok || !data.success || !data.result) {
-          alert("❌ " + (data.error || "Không thể chuyển đổi link."));
+        const convertedUrl = extractUrlFromPayload(data);
+        const isOk = res.ok && (typeof data.success === "boolean" ? data.success : Boolean(convertedUrl));
+        if (!isOk || !convertedUrl) {
+          const errMsg = data.error || data.message || NO_COMMISSION_MSG;
+          setNotice(errMsg, String(errMsg).startsWith("⚠️") ? "warn" : "error");
           return;
         }
 
-        const label = data.platform === "tiktok" ? "TikTok"
-          : data.platform === "lazada" ? "Lazada"
-          : data.platform === "shopee" ? "Shopee"
+        const rawPlatform = String(data.platform || "").toLowerCase();
+        const label = rawPlatform === "tiktok" ? "TikTok"
+          : rawPlatform === "lazada" ? "Lazada"
+          : rawPlatform === "shopee" ? "Shopee"
           : platform;
-        showConvertedResult(data, label);
+        handleConvertedLink(convertedUrl, label);
       } catch (err) {
         btn.innerHTML = originalText;
         btn.disabled = false;
-        alert("❌ Lỗi kết nối máy chủ: " + (err && err.message ? err.message : ""));
+        setNotice("❌ Lỗi kết nối máy chủ: " + (err && err.message ? err.message : ""), "error");
       }
     }
 
     function buyNow() {
       if (!realAffiliateLink) {
-        alert("Vui lòng thực hiện chuyển đổi link trước.");
+        setNotice("⚠️ Vui lòng thực hiện chuyển đổi link trước.", "warn");
         return;
       }
       window.open(realAffiliateLink, "_blank", "noopener");
