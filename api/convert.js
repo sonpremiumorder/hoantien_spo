@@ -5,9 +5,8 @@ const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn")
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
 const LAZADA_PARTNER_ID = process.env.LAZADA_PARTNER_ID || "lazop-sdk-php-affiliate-1.0";
 
-const RIOHUB_ENDPOINT = process.env.RIOHUB_ENDPOINT || "https://shp.today/process/riohub-test.php";
-const RIOHUB_API_KEY = process.env.RIOHUB_API_KEY || "";
-const TIKTOK_CREATOR_USERNAME = process.env.TIKTOK_CREATOR_USERNAME || "";
+const SHP_TODAY_API_URL = process.env.SHP_TODAY_API_URL || "https://shp.today/create-link.php";
+const SHP_TODAY_API_KEY = process.env.SHP_TODAY_API_KEY || "";
 
 function jsonError(res, status, error) {
   return res.status(status).json({ success: false, error });
@@ -188,47 +187,58 @@ async function createLazadaAffiliateLink(originalUrl, username) {
   return affiliateUrl;
 }
 
-async function createTikTokAffiliateLink(originalUrl) {
-  if (!RIOHUB_API_KEY || !TIKTOK_CREATOR_USERNAME) {
-    throw new Error("Chưa cấu hình RIOHUB_API_KEY và TIKTOK_CREATOR_USERNAME trên Vercel.");
+async function createTikTokAffiliateLink(originalUrl, username) {
+  if (!SHP_TODAY_API_KEY) {
+    throw new Error("Chưa cấu hình SHP_TODAY_API_KEY trên Vercel.");
   }
 
-  const formBody = new URLSearchParams({
-    api_key: RIOHUB_API_KEY,
-    creator_username: TIKTOK_CREATOR_USERNAME,
-    product_url: originalUrl
+  const params = new URLSearchParams({
+    api: "1",
+    sub1: String(username).slice(0, 100),
+    url: originalUrl
   });
 
-  const response = await fetch(RIOHUB_ENDPOINT, {
-    method: "POST",
+  const response = await fetch(`${SHP_TODAY_API_URL}?${params.toString()}`, {
+    method: "GET",
     headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-      "Accept": "application/json, text/plain, */*",
-      "User-Agent": "Mozilla/5.0 (compatible; SPO-Link-Converter/1.0)"
+      "X-API-Key": SHP_TODAY_API_KEY,
+      "Accept": "text/plain, application/json, */*"
     },
-    body: formBody.toString(),
     signal: AbortSignal.timeout(20000)
   });
 
-  const raw = await response.text();
-  let data;
-  try { data = JSON.parse(raw); }
-  catch { throw new Error("RioHub trả về dữ liệu không phải JSON: " + raw.slice(0, 250)); }
+  const raw = (await response.text()).trim();
 
   if (!response.ok) {
-    throw new Error(`RioHub HTTP ${response.status}: ${data.error || data.message || raw.slice(0, 250)}`);
+    throw new Error(`API TikTok HTTP ${response.status}: ${raw.slice(0, 250)}`);
   }
 
-  if (!data.ok || !data.link) {
-    throw new Error(data.error || "RioHub không tạo được link affiliate TikTok.");
+  // API trả về 1 dòng là link rút gọn, hoặc JSON nếu lỗi/định dạng mở rộng
+  if (/^https?:\/\/\S+$/i.test(raw)) {
+    return {
+      result: raw,
+      title: "Sản phẩm TikTok Shop",
+      price: "Đang cập nhật",
+      image: "https://placehold.co/100x100?text=TikTok",
+      commission: "Theo báo cáo TikTok Shop"
+    };
+  }
+
+  let data;
+  try { data = JSON.parse(raw); }
+  catch { throw new Error("API TikTok trả về lỗi: " + raw.slice(0, 250)); }
+
+  const link = data.link || data.url || data.short_url || data.result;
+  if (!link) {
+    throw new Error(data.error || data.message || "Không tạo được link affiliate TikTok.");
   }
 
   return {
-    result: data.link,
-    title: "Sản phẩm TikTok Shop",
-    price: "Đang cập nhật",
-    image: "https://placehold.co/100x100?text=TikTok",
-    commission: "Theo báo cáo TikTok Shop"
+    result: link,
+    title: data.title || "Sản phẩm TikTok Shop",
+    price: data.price || "Đang cập nhật",
+    image: data.image || "https://placehold.co/100x100?text=TikTok",
+    commission: data.commission || "Theo báo cáo TikTok Shop"
   };
 }
 
@@ -332,7 +342,7 @@ export default async function handler(req, res) {
     }
 
     if (platform === "tiktok") {
-      const tiktokData = await createTikTokAffiliateLink(inputUrl);
+      const tiktokData = await createTikTokAffiliateLink(inputUrl, String(username).trim());
       return res.status(200).json({ success: true, platform: "tiktok", ...tiktokData });
     }
 
