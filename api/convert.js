@@ -1,5 +1,4 @@
 import crypto from "crypto";
-
 const SHOPEE_AFFILIATE_ID = process.env.SHOPEE_AFFILIATE_ID || "17340760181";
 const LAZADA_BASE_URL = (process.env.LAZADA_BASE_URL || "https://api.lazada.vn").replace(/\/+$/, "");
 const LAZADA_API_PATH = process.env.LAZADA_API_PATH || "/marketing/getlink";
@@ -324,16 +323,28 @@ export default async function handler(req, res) {
 
     let resultLink = "";
 
-    if (SHP_TODAY_API_KEY) {
+    if (platform === "lazada") {
       try {
+        resultLink = await createLazadaAffiliateLink(inputUrl, cleanUsername);
+      } catch (lazErr) {
+        console.warn("Lazada API failed, falling back to shp.today:", lazErr.message);
+        if (!SHP_TODAY_API_KEY) {
+          throw lazErr;
+        }
         resultLink = await createViaShpTodayApi(inputUrl, cleanUsername);
-      } catch (shpErr) {
-        console.warn("shp.today failed, falling back to direct platform:", shpErr.message);
       }
-    }
+    } else {
+      if (SHP_TODAY_API_KEY) {
+        try {
+          resultLink = await createViaShpTodayApi(inputUrl, cleanUsername);
+        } catch (shpErr) {
+          console.warn("shp.today failed, falling back to direct platform:", shpErr.message);
+        }
+      }
 
-    if (!resultLink) {
-      resultLink = await createDirectPlatformLink(platform, inputUrl, cleanUsername);
+      if (!resultLink) {
+        resultLink = await createDirectPlatformLink(platform, inputUrl, cleanUsername);
+      }
     }
 
     return res.status(200).json({
